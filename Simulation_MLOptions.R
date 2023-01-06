@@ -10,7 +10,7 @@ library(grf)
 library(fastDummies)
 library(lme4)
 
-source("Comparing_methods_functions_21Aug2022.R")
+source("Comparing_methods_functions.R")
 
 ## Data Generation Function
 ## Tau based on Tan et al., 2021; Wager and Athey, 2018; Kunzel et al., 2019
