@@ -107,6 +107,32 @@ new_mem_sum <- new_mem %>%
 
 #### OPTION 3: WITHIN-FOREST ####
 
+#default method: https://grf-labs.github.io/grf/REFERENCE.html#missing-values
+
+#assign study
+#we don't need to replicate because we will get the same prediction each time
+new_default <- new %>%
+  mutate(S = factor(NA, levels=1:10)) %>%
+  fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T, ignore_na = T)
+
+#predict CATE
+cate_default <- predict(tau_forest, newdata = new_default, estimate.variance = T)
+new_default$mean <- cate_default$predictions 
+new_default$sd <- sqrt(cate_default$variance.estimates)
+
+#create confidence intervals
+new_default_sum <- new_default %>%
+  mutate(lower = mean + qt(.025, df=N-1)*sd/sqrt(N),
+         upper = mean + qt(.975, df=N-1)*sd/sqrt(N))
+
+
+
+#### OPTION 4: WITHIN-FOREST RANDOM SAMPLING ####
+
+
+
+#### OPTION 5: GRADE OF MEMBERSHIP MODEL ####
+
 
 
 
