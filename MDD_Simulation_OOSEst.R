@@ -40,8 +40,8 @@ add_agemadrs <- function(dat, n, k, distribution) {
 }
 
 #main function
-gen_data <- function (K=6, n_mean=200, n_sd=0, scenario="1a", 
-                      distribution="same") {
+gen_mdd <- function (K=6, n_mean=200, n_sd=0, scenario="1a", 
+                      distribution="same", test_dat, test_scenario="random") {
   
   all_dat <- data.frame()
   n_study <- floor(rnorm(K, mean=n_mean, sd=n_sd))
@@ -54,7 +54,7 @@ gen_data <- function (K=6, n_mean=200, n_sd=0, scenario="1a",
       #age = rtruncnorm(n=n, a=18, b=75, mean=45, sd=10),
       sex = rbinom(n=n, size=1, prob=.65),
       smstat = rbinom(n=n, size=1, prob=.3),
-      weight = rlnorm(n=n, meanlog=4.37, sdlog=.25),
+      weight = rtruncnorm(n=n, a=45, b=140, mean=80, sd=15),
       #madrs = rtruncnorm(n=n, a=26, b=60, mean=31, sd=4.1),
       W = rbinom(n=n, size=1, prob=.5),
       S = rep(k, n),
@@ -62,7 +62,10 @@ gen_data <- function (K=6, n_mean=200, n_sd=0, scenario="1a",
       eps = rnorm(n, mean=0, sd=.05)
     )
     
-    dat <- add_agemadrs(dat, n, k, distribution)
+    dat <- add_agemadrs(dat, n, k, distribution) %>%
+      mutate(weight = round(weight, 2),
+             age = round(age, 2),
+             madrs = round(madrs, 0))
     
     all_dat <- bind_rows(all_dat, dat)
   }
@@ -80,18 +83,42 @@ gen_data <- function (K=6, n_mean=200, n_sd=0, scenario="1a",
                0.15*sex + study_inter*madrs,
              tau = -8.5 + 0.07*age + 0.20*madrs + study_tau) %>%
       select(-study_main, -study_inter, -study_tau)
+    
+    if (test_scenario == "random") {
+      test_main <- runif(1, min=-14, max=-7)
+      test_inter <- runif(1, min=0.1, max=0.5)
+      test_tau <- runif(1, min=2.5, max=3.5)
+      test_dat <- test_dat %>%
+        mutate(test_main = test_main + rnorm(nrow(test_dat), mean=0, sd=0.1),
+               test_inter = test_inter + rnorm(nrow(test_dat), mean=0, sd=0.1),
+               test_tau = test_tau + rnorm(nrow(test_dat), mean=0, sd=0.1),
+               m = 10.7 - test_main - 0.02*age - 0.87*madrs -
+                 0.15*sex + test_inter*madrs,
+               tau = -8.5 + 0.07*age + 0.20*madrs + test_tau) %>%
+        select(-test_main, -test_inter, -test_tau)
+    } else if (test_scenario == "unobs_confounder") {
+      
+    }
   }
   
   if (scenario == "1b") {
-    all_dat$m <- 0
     study_tau <- runif(K, min=2.5, max=3.5)
-    all_dat$tau <- (2/(1+exp(-12*(all_dat$X1-1/2))))*(2/(1+exp(-12*(all_dat$X2-1/2)))) +
-      study_main[all_dat$S] + study_inter[all_dat$S]*all_dat$X1
     all_dat <- all_dat %>% 
       mutate(study_tau = study_tau[S],
              m = 0,
              tau = (study_tau/(1+exp(-1/12*age)))*(study_tau/(1+exp(-12*madrs)))) %>%
       select(-study_tau)
+    
+    if (test_scenario == "random") {
+      test_tau <- runif(1, min=2.5, max=3.5)
+      test_dat <- test_dat %>%
+        mutate(test_tau = test_tau + rnorm(nrow(test_dat), mean=0, sd=0.1),
+               m = 0,
+               tau = (test_tau/(1+exp(-1/12*age)))*(test_tau/(1+exp(-12*madrs)))) %>%
+        select(-test_tau)
+    } else if (test_scenario == "unobs_confounder") {
+      
+    }
   }
   
   all_dat <- all_dat %>%
@@ -99,7 +126,11 @@ gen_data <- function (K=6, n_mean=200, n_sd=0, scenario="1a",
     select(-c(eps, m)) %>%
     mutate(S = factor(S)) %>%
     relocate(S, id, W, sex, smstat, weight, age, madrs, Y, tau)
-  return(all_dat)
+  
+  test_dat <- test_dat %>%
+    mutate(eps = rnorm(nrow(test_dat), mean=0, sd=0.05),
+           Y = m + W*tau + eps)
+  return(list(all_dat=all_dat, test_dat=test_dat))
 }
 
 

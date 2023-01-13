@@ -12,15 +12,14 @@ library(lme4)
 library(nnet)
 
 source("Comparing_methods_functions.R")
-source("Simulation_MLOptions.R")
+source("MDD_Simulation_OOSEst.R")
 
 
 ## Simulate dataset
-K <- 10
-sim_dat <- gen_data(K=K, n_mean=500, n_sd=0, study_mean=0, study_inter_mean=0,
-                    study_sd=.5, study_inter_sd=0, scenario="1a")
+sim_dat <- gen_mdd(K=6, n_mean=200, n_sd=0, 
+                   scenario="1a", distribution="same")
 
-covars <- grep("^X", names(sim_dat), value=TRUE)
+covars <- c("sex", "smstat", "weight", "age", "madrs")
 feat <- select(sim_dat, c(S,all_of(covars))) %>%
   fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
 
@@ -37,18 +36,19 @@ tau_hat <- predict(tau_forest)$predictions
 
 ## Define new sample grid
 N <- 100
-new <- expand.grid(X1=seq(0, 3, by=1),
-                   X2=seq(0, 3, by=1),
-                   X3=seq(0, 3, by=1),
-                   X4=seq(0, 3, by=1),
-                   X5=seq(0, 3, by=1)) 
+test_dat <- expand.grid(W = c(0, 1),
+                        sex = c(0, 1),
+                        smstat = c(0, 1),
+                        weight = seq(45, 130, by=10),
+                        age = seq(18, 75, by=10),
+                        madrs = seq(20, 50, by=5))
 
 
 
 #### OPTION 1: COMPLETELY RANDOM ####
 
 #assign study
-new_rand <- new %>%
+new_rand <- test_dat%>%
   slice(rep(1:n(), each=N)) %>%
   mutate(S = sample(1:K, nrow(new)*N, replace = T)) %>%
   fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
@@ -87,7 +87,7 @@ for (i in 1:nrow(mem_probs)) {
 }
 
 #assign study
-new_mem <- new %>%
+new_mem <- test_dat%>%
   slice(rep(1:n(), each=N)) %>%
   mutate(S = S_mem) %>%
   fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
@@ -111,7 +111,7 @@ new_mem_sum <- new_mem %>%
 
 #assign study
 #we don't need to replicate because we will get the same prediction each time
-new_default <- new %>%
+new_default <- test_dat%>%
   mutate(S = factor(NA, levels=1:10)) %>%
   fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T, ignore_na = T)
 
