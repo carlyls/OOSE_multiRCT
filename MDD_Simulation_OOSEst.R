@@ -7,6 +7,7 @@ library(truncnorm)
 
 #interior function
 add_agemadrs <- function(dat, n, k, distribution) {
+  
   #add age and madrs
   if (distribution == "same") {
     dat <- dat %>%
@@ -43,7 +44,7 @@ add_agemadrs <- function(dat, n, k, distribution) {
 gen_mdd <- function (K=6, n_mean=200, n_sd=0, scenario="1a", 
                       distribution="same", test_dat, test_scenario="random") {
   
-  all_dat <- data.frame()
+  train_dat <- data.frame()
   n_study <- floor(rnorm(K, mean=n_mean, sd=n_sd))
   
   for (k in 1:K) {
@@ -67,7 +68,7 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, scenario="1a",
              age = round(age, 2),
              madrs = round(madrs, 0))
     
-    all_dat <- bind_rows(all_dat, dat)
+    train_dat <- bind_rows(train_dat, dat)
   }
 
   #tau and Y
@@ -75,7 +76,7 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, scenario="1a",
     study_main <- runif(K, min=-14, max=-7)
     study_inter <- runif(K, min=0.1, max=0.5)
     study_tau <- runif(K, min=2.5, max=3.5)
-    all_dat <- all_dat %>% 
+    train_dat <- train_dat %>% 
       mutate(study_main = study_main[S],
              study_inter = study_inter[S],
              study_tau = study_tau[S],
@@ -96,14 +97,14 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, scenario="1a",
                  0.15*sex + test_inter*madrs,
                tau = -8.5 + 0.07*age + 0.20*madrs + test_tau) %>%
         select(-test_main, -test_inter, -test_tau)
-    } else if (test_scenario == "unobs_confounder") {
+    } #else if (test_scenario == "unobs_confounder") {
       
-    }
+    #}
   }
   
   if (scenario == "1b") {
     study_tau <- runif(K, min=2.5, max=3.5)
-    all_dat <- all_dat %>% 
+    train_dat <- train_dat %>% 
       mutate(study_tau = study_tau[S],
              m = 0,
              tau = (study_tau/(1+exp(-1/12*age)))*(study_tau/(1+exp(-12*madrs)))) %>%
@@ -116,12 +117,12 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, scenario="1a",
                m = 0,
                tau = (test_tau/(1+exp(-1/12*age)))*(test_tau/(1+exp(-12*madrs)))) %>%
         select(-test_tau)
-    } else if (test_scenario == "unobs_confounder") {
+    } #else if (test_scenario == "unobs_confounder") {
       
-    }
+    #}
   }
   
-  all_dat <- all_dat %>%
+  train_dat <- train_dat %>%
     mutate(Y = m + W*tau + eps) %>%
     select(-c(eps, m)) %>%
     mutate(S = factor(S)) %>%
@@ -130,7 +131,7 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, scenario="1a",
   test_dat <- test_dat %>%
     mutate(eps = rnorm(nrow(test_dat), mean=0, sd=0.05),
            Y = m + W*tau + eps)
-  return(list(all_dat=all_dat, test_dat=test_dat))
+  return(list(train_dat=train_dat, test_dat=test_dat))
 }
 
 
