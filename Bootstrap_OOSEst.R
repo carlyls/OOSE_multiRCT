@@ -128,15 +128,8 @@ impute_default <- function(K, test_dat, tau_forest) {
 ##################################
 
 ## FUNCTION
-N <- 100
-test_dat <- expand.grid(W = c(0, 1),
-                        sex = c(0, 1),
-                        smstat = c(0, 1),
-                        weight = seq(45, 130, by=10),
-                        age = seq(18, 75, by=10),
-                        madrs = seq(20, 50, by=5))
 
-compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, scenario="1a", 
+compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, scenario="linear", 
                         distribution="same", test_dat, test_scenario="random") {
   
   ## Simulate training and testing (OOS) data
@@ -175,6 +168,9 @@ compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, scenario="1a",
   
   ## Save results
   return(list(train_res=train_res, res_rand=res_rand, 
-              res_mem=res_mem, res_default=res_default))
+              res_mem=res_mem, res_default=res_default,
+              N=N, K=K, n_mean=n_mean, n_sd=n_sd,
+              scenario=scenario, distribution=distribution,
+              test_dat=test_dat, test_scenario=test_scenario))
 }
 

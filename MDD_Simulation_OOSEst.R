@@ -41,7 +41,7 @@ add_agemadrs <- function(dat, n, k, distribution) {
 }
 
 #main function
-gen_mdd <- function (K=6, n_mean=200, n_sd=0, scenario="1a", 
+gen_mdd <- function (K=6, n_mean=200, n_sd=0, scenario="linear", 
                       distribution="same", test_dat, test_scenario="random") {
   
   train_dat <- data.frame()
@@ -72,7 +72,7 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, scenario="1a",
   }
 
   #tau and Y
-  if (scenario == "1a") {
+  if (scenario == "linear") {
     study_main <- runif(K, min=-14, max=-7)
     study_inter <- runif(K, min=0.1, max=0.5)
     study_tau <- runif(K, min=2.5, max=3.5)
@@ -102,7 +102,7 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, scenario="1a",
     #}
   }
   
-  if (scenario == "1b") {
+  if (scenario == "nonlinear") {
     study_tau <- runif(K, min=2.5, max=3.5)
     train_dat <- train_dat %>% 
       mutate(study_tau = study_tau[S],
