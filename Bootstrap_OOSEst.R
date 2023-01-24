@@ -20,7 +20,7 @@ impute_rand <- function(N, test_dat, tau_forest) {
     mutate(S = sample(1:K, nrow(test_dat)*N, replace = T)) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
   new_feat <- new_dat %>%
-    select(-c(W, m, tau, eps, Y))
+    select(-c(W, tau, Y))
   
   #predict CATE
   new_dat$tau_hat <- predict(tau_forest, newdata = new_feat)$predictions
@@ -65,7 +65,7 @@ impute_mem <- function(N, train_dat, test_dat, tau_forest) {
     mutate(S = S_mem) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
   new_feat <- new_mem %>%
-    select(-c(W, m, tau, eps, Y))
+    select(-c(W, tau, Y))
   
   #predict CATE
   new_mem$tau_hat <- predict(tau_forest, newdata = new_feat)$predictions
@@ -97,7 +97,7 @@ impute_default <- function(K, test_dat, tau_forest) {
     mutate(S = factor(NA, levels=1:K)) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T, ignore_na = T)
   new_feat <- new_default %>%
-    select(-c(W, m, tau, eps, Y))
+    select(-c(W, tau, Y))
   
   #predict CATE
   cate_default <- predict(tau_forest, newdata = new_feat, estimate.variance = T)
@@ -131,6 +131,7 @@ impute_default <- function(K, test_dat, tau_forest) {
 
 compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, scenario="linear", 
                         distribution="same", test_dist="same") {
+  
   
   ## Simulate training and testing (OOS) data
   sim_dat <- gen_mdd(K, n_mean, n_sd, scenario, distribution, test_dist)

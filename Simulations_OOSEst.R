@@ -13,18 +13,12 @@ source("MDD_Simulation_OOSEst.R")
 N <- 100
 K <- 6
 n_sd <- 0
-test_dat <- expand.grid(W = c(0, 1),
-                        sex = c(0, 1),
-                        smstat = c(0, 1),
-                        weight = seq(45, 130, by=10),
-                        age = seq(18, 75, by=10),
-                        madrs = seq(20, 50, by=5))
+#covars <- c("sex", "smstat", "weight", "age", "madrs")
 
 settings <- expand.grid(n_mean = c(200, 500),
-                        scenario = c("linear", "nonlinear"),
-                        distribution = c("same", "varying_madrs", 
-                                         "halfdiff_madrsage", "separate_age"),
-                        test_scenario = c("random"),
+                        scenario = c("simple", "linear"),
+                        distribution = c("same", "varying_madrs", "halfdiff_madrsage", "separate_age"),
+                        test_dist = c("same", "upweight", "different"),
                         iteration = c(1:500))
 
 #sets the row of the settings that you will use
@@ -33,14 +27,14 @@ i=as.numeric(Sys.getenv('SGE_TASK_ID'))
 n_mean <- settings$n_mean[i]
 scenario <- settings$scenario[i]
 distribution <- settings$distribution[i]
-test_scenario <- settings$test_scenario[i]
+test_dist <- settings$test_dist[i]
 iteration <- settings$iteration[i]
 seed <- i
 
 #now code
 set.seed(seed)
 results <- compare_oos(N=N, K=K, n_mean=n_mean, n_sd=n_sd, scenario=scenario, 
-                       distribution=distribution, test_dat=test_dat, test_scenario=test_scenario)
-save(results, file=paste(paste("results",seed,N,K,n_mean,n_sd,scenario,distribution,test_scenario,
+                       distribution=distribution, test_dist=test_dist)
+save(results, file=paste(paste("results",seed,N,K,n_mean,n_sd,scenario,distribution,test_dist,
                                sep = "_"),".Rdata",sep=""))
 
