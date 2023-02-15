@@ -129,12 +129,12 @@ impute_default <- function(K, test_dat, tau_forest) {
 
 ## FUNCTION
 
-compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, scenario="linear", 
-                        distribution="same", test_dist="same") {
+compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, 
+                        eps_study_tau=0.01, distribution="same", test_dist="same") {
   
   
   ## Simulate training and testing (OOS) data
-  sim_dat <- gen_mdd(K, n_mean, n_sd, scenario, distribution, test_dist)
+  sim_dat <- gen_mdd(K, n_mean, n_sd, eps_study_m, eps_study_tau, distribution, test_dist)
   train_dat <- sim_dat[["train_dat"]]
   test_dat <- sim_dat[["test_dat"]]
   
