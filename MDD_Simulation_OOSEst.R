@@ -44,7 +44,7 @@ sample_dist <- function(k, n, Sigma, distribution) {
 
 #main function
 gen_mdd <- function (K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0.01, 
-                      distribution="same", test_dist="same") {
+                      distribution="same", target_dist="same") {
   
   #training data
   train_dat <- data.frame()
@@ -67,20 +67,20 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0.
     train_dat <- bind_rows(train_dat, dat)
   }
   
-  #testing data
-  if (test_dist == "same") {
-    test_dat <- train_dat[sample(nrow(train_dat), 100),] %>%
+  #target data
+  if (target_dist == "same") {
+    target_dat <- train_dat[sample(nrow(train_dat), 100),] %>%
       select(-S, -eps_m, -eps_tau)
     
-  } else if (test_dist == "upweight") {
+  } else if (target_dist == "upweight") {
     train_weight <- train_dat %>%
       mutate(study_weight = ifelse(S %in% c(3, 5), 3, 1))
-    test_dat <- train_weight[sample(nrow(train_weight), 100, prob=train_weight$study_weight),] %>%
+    target_dat <- train_weight[sample(nrow(train_weight), 100, prob=train_weight$study_weight),] %>%
       select(-study_weight, -S, -eps_m, -eps_tau)
     
-  } else if (test_dist == "different") {
-    test_mean <- c(age=30, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=25)
-    test_dat <- MASS::mvrnorm(n=100, mu=test_mean, Sigma=Sigma) %>%
+  } else if (target_dist == "different") {
+    target_mean <- c(age=30, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=25)
+    target_dat <- MASS::mvrnorm(n=100, mu=target_mean, Sigma=Sigma) %>%
       as.data.frame() %>%
       mutate(sex = ifelse(sex > 1-0.6784, 1, 0),
              smstat = ifelse(smstat > 1-0.3043, 1, 0),
@@ -93,7 +93,7 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0.
   train_dat <- train_dat %>% 
     mutate(m = -0.02*age - 0.7*madrs - 0.15*sex + eps_m,
            tau = -8.5 + 0.07*age + 0.20*madrs + eps_tau)
-  test_dat <- test_dat %>% 
+  target_dat <- target_dat %>% 
     mutate(m = -0.02*age - 0.7*madrs - 0.15*sex,
            tau = -8.5 + 0.07*age + 0.20*madrs)
   
@@ -103,11 +103,11 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0.
            S = factor(S)) %>%
     select(S, W, sex, smstat, weight, age, madrs, Y, tau)
   
-  test_dat <- test_dat %>%
+  target_dat <- target_dat %>%
     mutate(Y = m + W*tau + eps) %>%
     select(W, sex, smstat, weight, age, madrs, Y, tau)
   
-  return(list(train_dat=train_dat, test_dat=test_dat))
+  return(list(train_dat=train_dat, target_dat=target_dat))
 }
 
 
@@ -168,13 +168,13 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0.
 #            tau = -10.5 + 0.07*age + 0.20*madrs + study_tau) %>%
 #     select(-study_main, -study_inter, -study_tau)
 #   
-#   test_main <- rnorm(1, mean=-10, sd=1)
-#   test_inter <- rnorm(1, mean=0.25, sd=0.05)
-#   test_tau <- rnorm(1, mean=3, sd=0.05)
-#   test_dat <- test_dat %>%
-#     mutate(m = 10.7 + test_main - 0.02*age - 0.87*madrs -
-#              0.15*sex + test_inter*madrs,
-#            tau = -10.5 + 0.07*age + 0.20*madrs + test_tau)
+#   target_main <- rnorm(1, mean=-10, sd=1)
+#   target_inter <- rnorm(1, mean=0.25, sd=0.05)
+#   target_tau <- rnorm(1, mean=3, sd=0.05)
+#   target_dat <- target_dat %>%
+#     mutate(m = 10.7 + target_main - 0.02*age - 0.87*madrs -
+#              0.15*sex + target_inter*madrs,
+#            tau = -10.5 + 0.07*age + 0.20*madrs + target_tau)
 # }
 
 # if (scenario == "linear") {
@@ -190,17 +190,17 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0.
 #            tau = -8.5 + 0.07*age + 0.20*madrs + study_tau) %>%
 #     select(-study_main, -study_inter, -study_tau)
 #   
-#   test_main <- runif(1, min=-14, max=-7)
-#   test_inter <- runif(1, min=0.1, max=0.5)
-#   test_tau <- runif(1, min=2.5, max=3.5)
-#   test_dat <- test_dat %>%
-#     mutate(test_main = test_main + rnorm(nrow(test_dat), mean=0, sd=0.1),
-#            test_inter = test_inter + rnorm(nrow(test_dat), mean=0, sd=0.1),
-#            test_tau = test_tau + rnorm(nrow(test_dat), mean=0, sd=0.1),
-#            m = 10.7 + test_main - 0.02*age - 0.87*madrs -
-#              0.15*sex + test_inter*madrs,
-#            tau = -8.5 + 0.07*age + 0.20*madrs + test_tau) %>%
-#     select(-test_main, -test_inter, -test_tau)
+#   target_main <- runif(1, min=-14, max=-7)
+#   target_inter <- runif(1, min=0.1, max=0.5)
+#   target_tau <- runif(1, min=2.5, max=3.5)
+#   target_dat <- target_dat %>%
+#     mutate(target_main = target_main + rnorm(nrow(target_dat), mean=0, sd=0.1),
+#            target_inter = target_inter + rnorm(nrow(target_dat), mean=0, sd=0.1),
+#            target_tau = target_tau + rnorm(nrow(target_dat), mean=0, sd=0.1),
+#            m = 10.7 + target_main - 0.02*age - 0.87*madrs -
+#              0.15*sex + target_inter*madrs,
+#            tau = -8.5 + 0.07*age + 0.20*madrs + target_tau) %>%
+#     select(-target_main, -target_inter, -target_tau)
 # }
 
 # if (scenario == "nonlinear") {
@@ -211,11 +211,11 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0.
 #            tau = (study_tau/(1+exp(-1/12*age)))*(study_tau/(1+exp(-12*madrs)))) %>%
 #     select(-study_tau)
 #   
-#   test_tau <- runif(1, min=2.5, max=3.5)
-#   test_dat <- test_dat %>%
-#     mutate(test_tau = test_tau + rnorm(nrow(test_dat), mean=0, sd=0.1),
+#   target_tau <- runif(1, min=2.5, max=3.5)
+#   target_dat <- target_dat %>%
+#     mutate(target_tau = target_tau + rnorm(nrow(target_dat), mean=0, sd=0.1),
 #            m = 0,
-#            tau = (test_tau/(1+exp(-1/12*age)))*(test_tau/(1+exp(-12*madrs)))) %>%
-#     select(-test_tau)
+#            tau = (target_tau/(1+exp(-1/12*age)))*(target_tau/(1+exp(-12*madrs)))) %>%
+#     select(-target_tau)
 # }
 # 

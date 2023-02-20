@@ -12,12 +12,12 @@ source("MDD_Simulation_OOSEst.R")
 
 #### OPTION 1: COMPLETELY RANDOM ####
 
-impute_rand <- function(N, test_dat, tau_forest) {
+impute_rand <- function(N, target_dat, tau_forest) {
   
   #assign study
-  new_dat <- test_dat %>%
+  new_dat <- target_dat %>%
     slice(rep(1:n(), each=N)) %>%
-    mutate(S = sample(1:K, nrow(test_dat)*N, replace = T)) %>%
+    mutate(S = sample(1:K, nrow(target_dat)*N, replace = T)) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
   new_feat <- new_dat %>%
     select(-c(W, tau, Y))
@@ -43,7 +43,7 @@ impute_rand <- function(N, test_dat, tau_forest) {
 
 #### OPTION 2: STUDY MEMBERSHIP MODEL ####
 
-impute_mem <- function(N, train_dat, test_dat, tau_forest) {
+impute_mem <- function(N, train_dat, target_dat, tau_forest) {
   
   #create membership model
   mem_mod <- multinom(S ~ sex + smstat + weight + age + madrs + Y, data=train_dat)
@@ -53,14 +53,14 @@ impute_mem <- function(N, train_dat, test_dat, tau_forest) {
   #tab <- table(train_dat$S, preds); #round((sum(diag(tab))/sum(tab))*100,2)
   
   #define probabilities
-  mem_probs <- predict(mem_mod, newdata = test_dat, type = "probs")
+  mem_probs <- predict(mem_mod, newdata = target_dat, type = "probs")
   S_mem <- c()
   for (i in 1:nrow(mem_probs)) {
     S_mem <- c(S_mem, sample(1:K, N, replace=T, prob=mem_probs[i,]))
   }
   
   #assign study
-  new_mem <- test_dat %>%
+  new_mem <- target_dat %>%
     slice(rep(1:n(), each=N)) %>%
     mutate(S = S_mem) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
@@ -88,12 +88,12 @@ impute_mem <- function(N, train_dat, test_dat, tau_forest) {
 
 #### OPTION 3: WITHIN-FOREST ####
 
-impute_default <- function(K, test_dat, tau_forest) {
+impute_default <- function(K, target_dat, tau_forest) {
   
   #default method: https://grf-labs.github.io/grf/REFERENCE.html#missing-values
   #assign study
   #we don't need to replicate because we will get the same prediction each time
-  new_default <- test_dat %>%
+  new_default <- target_dat %>%
     mutate(S = factor(NA, levels=1:K)) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T, ignore_na = T)
   new_feat <- new_default %>%
@@ -130,16 +130,16 @@ impute_default <- function(K, test_dat, tau_forest) {
 ## FUNCTION
 
 compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, 
-                        eps_study_tau=0.01, distribution="same", test_dist="same") {
+                        eps_study_tau=0.01, distribution="same", target_dist="same") {
   
   
-  ## Simulate training and testing (OOS) data
-  sim_dat <- gen_mdd(K, n_mean, n_sd, eps_study_m, eps_study_tau, distribution, test_dist)
+  ## Simulate training and target (OOS) data
+  sim_dat <- gen_mdd(K, n_mean, n_sd, eps_study_m, eps_study_tau, distribution, target_dist)
   train_dat <- sim_dat[["train_dat"]]
-  test_dat <- sim_dat[["test_dat"]]
+  target_dat <- sim_dat[["target_dat"]]
   
   covars <- c("sex", "smstat", "weight", "age", "madrs")
-  feat <- select(train_dat, c(S,all_of(covars))) %>%
+  feat <- select(train_dat, c(S, all_of(covars))) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
   tau_true <- train_dat$tau
   
@@ -158,20 +158,20 @@ compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05,
   train_res <- c(train_mse=train_mse, train_coverage=train_coverage)
   
   
-  ## Calculate mean and CIs for each test individual according to each imputation method
+  ## Calculate mean and CIs for each target individual according to each imputation method
   #random
-  res_rand <- impute_rand(N, test_dat, tau_forest)
+  res_rand <- impute_rand(N, target_dat, tau_forest)
   #study membership model
-  res_mem <- impute_mem(N, train_dat, test_dat, tau_forest)
+  res_mem <- impute_mem(N, train_dat, target_dat, tau_forest)
   #within-forest default
-  res_default <- impute_default(K, test_dat, tau_forest)
+  res_default <- impute_default(K, target_dat, tau_forest)
   
   
   ## Save results
   return(list(train_res=train_res, res_rand=res_rand, 
               res_mem=res_mem, res_default=res_default,
               N=N, K=K, n_mean=n_mean, n_sd=n_sd,
-              scenario=scenario, distribution=distribution,
-              test_dat=test_dat, test_scenario=test_scenario))
+              eps_study_m=eps_study_m, eps_study_tau=eps_study_tau, 
+              distribution=distribution, target_dist=target_dist))
 }
 

@@ -16,29 +16,30 @@ n_sd <- 0
 #covars <- c("sex", "smstat", "weight", "age", "madrs")
 
 settings <- expand.grid(n_mean = c(200, 500),
-                        scenario_combo = c("simple 0.01", "simple 0.05", "simple 1",
-                                           "simple 3", "linear 0"),
+                        eps_combo = c("0.05 0.01", "1 0.01", "1 0.05",
+                                           "1 1", "2 1"),
                         distribution = c("same", "varying_madrs", "halfdiff_madrsage", "separate_age"),
-                        test_dist = c("same", "upweight", "different"),
+                        target_dist = c("same", "upweight", "different"),
                         iteration = c(1:500)) %>%
-  separate(scenario_combo, into=c("scenario", "eps_study_sd"), sep=" ") %>%
-  mutate(eps_study_sd = as.numeric(eps_study_sd))
+  separate(eps_combo, into=c("eps_study_m", "eps_study_tau"), sep=" ") %>%
+  mutate(eps_study_m = as.numeric(eps_study_m),
+         eps_study_tau = as.numeric(eps_study_tau))
 
 #sets the row of the settings that you will use
 i=as.numeric(Sys.getenv('SGE_TASK_ID'))
 
 n_mean <- settings$n_mean[i]
-eps_study_sd <- settings$eps_study_sd[i]
-scenario <- settings$scenario[i]
+eps_study_m <- settings$eps_study_m[i]
+eps_study_tau <- settings$eps_study_tau[i]
 distribution <- settings$distribution[i]
-test_dist <- settings$test_dist[i]
+target_dist <- settings$target_dist[i]
 iteration <- settings$iteration[i]
 seed <- i
 
 #now code
 set.seed(seed)
-results <- compare_oos(N=N, K=K, n_mean=n_mean, n_sd=n_sd, eps_study_sd=eps_study_sd, 
-                       scenario=scenario, distribution=distribution, test_dist=test_dist)
+results <- compare_oos(N=N, K=K, n_mean=n_mean, n_sd=n_sd, eps_study_m=eps_study_m, 
+                       eps_study_tau=eps_study_tau, distribution=distribution, target_dist=target_dist)
 save(results, file=paste(paste("results",seed,N,K,n_mean,n_sd,eps_study_sd,
-                               scenario,distribution,test_dist,sep = "_"),".Rdata",sep=""))
+                               eps_study_tau,distribution,target_dist,sep = "_"),".Rdata",sep=""))
 
