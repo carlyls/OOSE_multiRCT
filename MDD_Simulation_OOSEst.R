@@ -6,92 +6,87 @@ library(rsample)
 library(truncnorm)
 
 #interior function
-add_study <- function(dat, K, n, distribution) {
+sample_dist <- function(k, n, Sigma, distribution) {
+  
+  #define mu based on distribution input
   if (distribution == "same") {
-    dat <- dat %>%
-      mutate(S = sample(rep(1:K, n), replace=F))
+    mu <- c(age=44.8971, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=31.4088)
+
+    } else if (distribution == "varying_madrs") {
+      mu <- c(age=44.8971, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=31.4088-k*1.5)
     
+    } else if (distribution == "halfdiff_madrsage") {
+      if (k%%2 == 0 ) {
+        mu <- c(age=50, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=40)
+      } else {
+        mu <- c(age=44.8971, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=31.4088)
+      }
     
-    ## DEFINE CATEGORICAL MODEL FOR S and assign based on probabilities for the below options
-  } else if (distribution == "varying_madrs") {
-    dat <- dat %>%
-      mutate(age = rtruncnorm(n=n, a=18, b=75, mean=45, sd=10),
-             madrs = rtruncnorm(n=n, a=26-k*1.5, b=60-k*1.5, mean=31-k*1.5, sd=4.1))
-    
-  } else if (distribution == "halfdiff_madrsage") {
-    if (k%%2 == 0 ) {
-      dat <- dat %>%
-        mutate(age = rtruncnorm(n=n, a=30, b=75, mean=50, sd=10),
-               madrs = rtruncnorm(n=n, a=30, b=60, mean=40, sd=4.1))
-    } else {
-      dat <- dat %>%
-        mutate(age = rtruncnorm(n=n, a=18, b=75, mean=45, sd=10),
-               madrs = rtruncnorm(n=n, a=26, b=60, mean=31, sd=4.1))
+    } else if (distribution == "separate_age") {
+      ages <- c(30, 35, 40, 45, 50, 55)
+      mu <- c(age=ages[k], sex=0.6784, smstat=0.3043, weight=79.0253, madrs=31.4088)
+      
     }
-    
-  } else if (distribution == "separate_age") {
-    ages <- seq(18,75,by=(75-18)/10)
-    dat <- dat %>%
-      mutate(age = runif(n=n, min=ages[k], max=ages[k+1]),
-             madrs = rtruncnorm(n=n, a=26, b=60, mean=31, sd=4.1))
-  }
   
-  eps_m <- rnorm(K, mean=0, sd=eps_study_sd)
-  eps_tau <- rnorm(K, mean=0, sd=eps_study_sd)
-  
-  dat <- dat %>%
-    arrange(S) %>%
-    mutate(W = rbinom(n=n*K, size=1, prob=.5), ### FIX THIS SO THAT IT'S p=0.5 WITHIN EACH STUDY
-           eps_m = eps_m[S],
-           eps_tau = eps_tau[S])
+  #simulate data
+  dat <- MASS::mvrnorm(n=n, mu=mu, Sigma=Sigma) %>%
+    as.data.frame() %>%
+    mutate(sex = ifelse(sex > 1-0.6784, 1, 0),
+           smstat = ifelse(smstat > 1-0.3043, 1, 0),
+           eps = rnorm(n=n, mean=0, sd=.05),
+           W = rbinom(n=n, size=1, prob=.5),
+           eps_m = rnorm(n=1, mean=0, sd=eps_study_m),
+           eps_tau = rnorm(n=1, mean=0, sd=eps_study_tau),
+           S = k)
   
   return(dat)
 }
 
 #main function
-gen_mdd <- function (K=6, n=200, eps_study_m=0.05, eps_study_tau=0.01, 
+gen_mdd <- function (K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0.01, 
                       distribution="same", test_dist="same") {
   
   #training data
   train_dat <- data.frame()
+  n_study <- floor(rnorm(K, mean=n_mean, sd=n_sd))
   
-  #simulate joint distribution
-  mu <- c(age=44.8971, sex=0.6784, smstat=0.3043, weight=79.0253, madrs_base=31.4088)
+  #define covariance matrix
   Sigma <- data.frame(age=c(165.6471, 0.2448, -0.5180, 1.6408, -0.9666),
                       sex=c(0.2448, 0.2183, -0.0218, -1.9030, 0.1380),
                       smstat=c(-0.5180, -0.0218, 0.2118, -0.1429, 0.1155),
                       weight=c(1.6408, -1.9030, -0.1428, 452.6100, -7.6864),
                       madrs=c(-0.9666, 0.1380, 0.1155, -7.6864, 17.5343),
                       row.names=c("age","sex","smstat","weight","madrs"))
-  dat <- MASS::mvrnorm(n=n*K, mu=mu, Sigma=Sigma) %>%
-    as.data.frame() %>%
-    mutate(sex = ifelse(sex > 1-0.6784, 1, 0),
-           smstat = ifelse(smstat > 1-0.3043, 1, 0),
-           eps = rnorm(n*K, mean=0, sd=.05))
   
-  train_dat <- add_study(dat, K, n, distribution) %>%
-    mutate()
+  for (k in 1:K) {
+    n <- n_study[k]
+    
+    #sample
+    dat <- sample_dist(k, n, Sigma, distribution)
+    
+    train_dat <- bind_rows(train_dat, dat)
+  }
   
   #testing data
   if (test_dist == "same") {
     test_dat <- train_dat[sample(nrow(train_dat), 100),] %>%
-      select(-S, -id)
+      select(-S, -eps_m, -eps_tau)
+    
   } else if (test_dist == "upweight") {
     train_weight <- train_dat %>%
       mutate(study_weight = ifelse(S %in% c(3, 5), 3, 1))
     test_dat <- train_weight[sample(nrow(train_weight), 100, prob=train_weight$study_weight),] %>%
-      select(-study_weight, -S, -id)
+      select(-study_weight, -S, -eps_m, -eps_tau)
+    
   } else if (test_dist == "different") {
-    ## MAKE THIS MVRNORM
-    test_dat <- data.frame(
-      sex = rbinom(n=100, size=1, prob=.65),
-      smstat = rbinom(n=100, size=1, prob=.3),
-      weight = rtruncnorm(n=100, a=45, b=140, mean=80, sd=15),
-      W = rbinom(n=100, size=1, prob=.5),
-      eps = rnorm(n=100, mean=0, sd=.05),
-      age = rtruncnorm(n=100, a=18, b=40, mean=25, sd=10), #younger
-      madrs = rtruncnorm(n=100, a=16, b=40, mean=25, sd=4.1) #less severe
-    )
+    test_mean <- c(age=30, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=25)
+    test_dat <- MASS::mvrnorm(n=100, mu=test_mean, Sigma=Sigma) %>%
+      as.data.frame() %>%
+      mutate(sex = ifelse(sex > 1-0.6784, 1, 0),
+             smstat = ifelse(smstat > 1-0.3043, 1, 0),
+             eps = rnorm(n=100, mean=0, sd=.05),
+             W = rbinom(n=100, size=1, prob=.5))
+    
   }
   
   #m and tau
@@ -104,12 +99,12 @@ gen_mdd <- function (K=6, n=200, eps_study_m=0.05, eps_study_tau=0.01,
   
   #outcome Y
   train_dat <- train_dat %>%
-    mutate(Y = round(m + W*tau + eps, 0),
+    mutate(Y = m + W*tau + eps,
            S = factor(S)) %>%
     select(S, W, sex, smstat, weight, age, madrs, Y, tau)
   
   test_dat <- test_dat %>%
-    mutate(Y = round(m + W*tau + eps, 0)) %>%
+    mutate(Y = m + W*tau + eps) %>%
     select(W, sex, smstat, weight, age, madrs, Y, tau)
   
   return(list(train_dat=train_dat, test_dat=test_dat))
@@ -120,7 +115,10 @@ gen_mdd <- function (K=6, n=200, eps_study_m=0.05, eps_study_tau=0.01,
 
 
 
-##other option for simulating covariates
+
+#### EXTRA CODE ####
+
+# other option for simulating covariates
 # add_agemadrs <- function(dat, n, k, distribution) {
 # 
 #   #add age and madrs
