@@ -6,7 +6,7 @@ library(rsample)
 library(truncnorm)
 
 #interior function
-sample_dist <- function(k, n, Sigma, distribution) {
+sample_dist <- function(k, n, Sigma, eps_study_m, eps_study_tau, distribution) {
   
   #define mu based on distribution input
   if (distribution == "same") {
@@ -62,7 +62,7 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0.
     n <- n_study[k]
     
     #sample
-    dat <- sample_dist(k, n, Sigma, distribution)
+    dat <- sample_dist(k, n, Sigma, eps_study_m, eps_study_tau, distribution)
     
     train_dat <- bind_rows(train_dat, dat)
   }
