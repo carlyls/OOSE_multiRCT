@@ -7,7 +7,7 @@ library(fastDummies)
 library(nnet)
 
 #source("Comparing_methods_functions.R")
-source("MDD_Simulation_OOSEst.R")
+source("R/MDD_Generation_OOSEst.R")
 
 
 #### OPTION 1: COMPLETELY RANDOM ####
@@ -20,7 +20,7 @@ impute_rand <- function(N, target_dat, tau_forest) {
     mutate(S = sample(1:K, nrow(target_dat)*N, replace = T)) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
   new_feat <- new_dat %>%
-    select(-c(W, tau, Y))
+    dplyr::select(-c(W, tau, Y))
   
   #predict CATE
   new_dat$tau_hat <- predict(tau_forest, newdata = new_feat)$predictions
@@ -65,7 +65,7 @@ impute_mem <- function(N, train_dat, target_dat, tau_forest) {
     mutate(S = S_mem) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
   new_feat <- new_mem %>%
-    select(-c(W, tau, Y))
+    dplyr::select(-c(W, tau, Y))
   
   #predict CATE
   new_mem$tau_hat <- predict(tau_forest, newdata = new_feat)$predictions
@@ -97,7 +97,7 @@ impute_default <- function(K, target_dat, tau_forest) {
     mutate(S = factor(NA, levels=1:K)) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T, ignore_na = T)
   new_feat <- new_default %>%
-    select(-c(W, tau, Y))
+    dplyr::select(-c(W, tau, Y))
   
   #predict CATE
   cate_default <- predict(tau_forest, newdata = new_feat, estimate.variance = T)
@@ -139,7 +139,7 @@ compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05,
   target_dat <- sim_dat[["target_dat"]]
   
   covars <- c("sex", "smstat", "weight", "age", "madrs")
-  feat <- select(train_dat, c(S, all_of(covars))) %>%
+  feat <- dplyr::select(train_dat, c(S, all_of(covars))) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
   tau_true <- train_dat$tau
   

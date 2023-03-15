@@ -6,8 +6,8 @@ library(grf)
 library(fastDummies)
 library(nnet)
 
-source("Bootstrap_OOSEst.R")
-source("MDD_Simulation_OOSEst.R")
+source("R/Bootstrap_OOSEst.R")
+source("R/MDD_Generation_OOSEst.R")
 
 # set up data
 N <- 100
