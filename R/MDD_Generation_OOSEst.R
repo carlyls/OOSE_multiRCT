@@ -6,7 +6,7 @@ library(rsample)
 library(truncnorm)
 
 #interior function
-sample_dist <- function(k, n, Sigma, eps_study_m, eps_study_tau, distribution) {
+sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_age, distribution) {
   
   #define mu based on distribution input
   if (distribution == "same") {
@@ -23,7 +23,7 @@ sample_dist <- function(k, n, Sigma, eps_study_m, eps_study_tau, distribution) {
       }
     
     } else if (distribution == "separate_age") {
-      ages <- c(30, 35, 40, 45, 50, 55)
+      ages <- seq(30, 55, length.out=K)
       mu <- c(age=ages[k], sex=0.6784, smstat=0.3043, weight=79.0253, madrs=31.4088)
       
     }
@@ -37,14 +37,15 @@ sample_dist <- function(k, n, Sigma, eps_study_m, eps_study_tau, distribution) {
            W = rbinom(n=n, size=1, prob=.5),
            eps_m = rnorm(n=1, mean=0, sd=eps_study_m),
            eps_tau = rnorm(n=1, mean=0, sd=eps_study_tau),
+           eps_age = rnorm(n=1, mean=0, sd=eps_study_age),
            S = k)
   
   return(dat)
 }
 
 #main function
-gen_mdd <- function (K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0.01, 
-                      distribution="same", target_dist="same") {
+gen_mdd <- function (K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=3, 
+                     eps_study_age=0.05, distribution="same", target_dist="same", eps_target=0) {
   
   #training data
   train_dat <- data.frame()
@@ -62,21 +63,21 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0.
     n <- n_study[k]
     
     #sample
-    dat <- sample_dist(k, n, Sigma, eps_study_m, eps_study_tau, distribution)
-    
+    dat <- sample_dist(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_age, distribution)
     train_dat <- bind_rows(train_dat, dat)
+    
   }
   
   #target data
   if (target_dist == "same") {
     target_dat <- train_dat[sample(nrow(train_dat), 100),] %>%
-      dplyr::select(-S, -eps_m, -eps_tau)
+      dplyr::select(-S, -eps_m, -eps_tau, -eps_age)
     
   } else if (target_dist == "upweight") {
     train_weight <- train_dat %>%
       mutate(study_weight = ifelse(S %in% c(3, 5), 3, 1))
     target_dat <- train_weight[sample(nrow(train_weight), 100, prob=train_weight$study_weight),] %>%
-      dplyr::select(-study_weight, -S, -eps_m, -eps_tau)
+      dplyr::select(-study_weight, -S, -eps_m, -eps_tau, -eps_age)
     
   } else if (target_dist == "different") {
     target_mean <- c(age=30, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=25)
@@ -89,13 +90,19 @@ gen_mdd <- function (K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0.
     
   }
   
+  #add error terms to target sample
+  target_dat <- target_dat %>%
+    mutate(eps_m = rnorm(n=1, mean=0, sd=eps_target),
+           eps_tau = rnorm(n=1, mean=0, sd=eps_target),
+           eps_age = rnorm(n=1, mean=0, sd=eps_target))
+  
   #m and tau
   train_dat <- train_dat %>% 
-    mutate(m = -0.02*age - 0.7*madrs - 0.15*sex + eps_m,
-           tau = -8.5 + 0.07*age + 0.20*madrs + eps_tau)
+    mutate(m = (-1.26 + eps_m) - 0.015*age - 0.49*madrs - 0.093*sex,
+           tau = (-0.596 + eps_tau) + (0.068 + eps_age)*age)
   target_dat <- target_dat %>% 
-    mutate(m = -0.02*age - 0.7*madrs - 0.15*sex,
-           tau = -8.5 + 0.07*age + 0.20*madrs)
+    mutate(m = (-1.26 + eps_m) - 0.015*age - 0.49*madrs - 0.093*sex,
+           tau = (-0.596 + eps_tau) + (0.068 + eps_age)*age)
   
   #outcome Y
   train_dat <- train_dat %>%

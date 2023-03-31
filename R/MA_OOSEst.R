@@ -178,12 +178,13 @@ assess_interval <- function(train_dat, target_dat) {
 
 
 #overall function ####
-compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, 
-                        eps_study_tau=0.01, distribution="same", target_dist="same") {
+compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=3, 
+                        eps_study_age=0.05, distribution="same", target_dist="same", eps_target=0) {
   
   
   ## Simulate training and target (OOS) data
-  sim_dat <- gen_mdd(K, n_mean, n_sd, eps_study_m, eps_study_tau, distribution, target_dist)
+  sim_dat <- gen_mdd(K, n_mean, n_sd, eps_study_m, eps_study_tau, 
+                     eps_study_age, distribution, target_dist, eps_target)
   train_dat <- sim_dat[["train_dat"]]
   target_dat <- sim_dat[["target_dat"]]
   
@@ -191,8 +192,8 @@ compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05,
   
   
   ## Fit mixed effects model
-  mod <- lmer(Y ~ W + age + W:age +
-                       (W + age + W:age | S), data=train_dat)
+  mod <- lmer(Y ~ age + madrs + sex + W + W:age +
+                  (W + W:age | S), data=train_dat)
   sum <- summary(mod)
   
   
