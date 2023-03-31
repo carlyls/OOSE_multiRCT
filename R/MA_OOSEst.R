@@ -9,37 +9,6 @@ library(MASS)
 
 source("R/MDD_Generation_OOSEst.R")
 
-#simulate data ####
-sim_dat <- gen_mdd(K=6, n_mean=200, n_sd=0, eps_study_m=1, eps_study_tau=0.05, 
-                   distribution="same", target_dist="same")
-train_dat <- sim_dat[["train_dat"]]
-target_dat <- sim_dat[["target_dat"]]
-
-covars <- c("sex", "smstat", "weight", "age", "madrs")
-
-
-#model ####
-mod <- lmer(Y ~ W + age + W:age +
-              (W + age + W:age | S), data=train_dat)
-sum <- summary(mod)
-
-#explore var/covar
-#coef(summary(mod)) #fixed effects and SEs
-#fc <- vcov(mod) #covariance matrix of fixed effects
-#print(VarCorr(mod), comp=c("Variance","Std.Dev")) #random effects
-#rc <- as.data.frame(VarCorr(mod)) #variance and covariances of random effects
-#sigma(mod) #residual sd
-
-#example CATE PI ####
-# example: let age be 40 years old
-# x <- 40
-# meantheta <- fixef(mod)["W"] + fixef(mod)["W:age"]*x
-# vartheta <- fc["W","W"] + x^2*fc["W:age","W:age"] +
-#   2*x*fc["W","W:age"] + rc[which(rc$var1=="W" & is.na(rc$var2)==T),"vcov"] +
-#   x^2*rc[which(rc$var1=="W:age" & is.na(rc$var2)==T),"vcov"] +
-#   2*x*rc[which(rc$var1=="W" & rc$var2=="W:age"),"vcov"]
-
-
 #prediction interval by hand ####
 #get variance components of model
 matrix_var <- function(mod) {
@@ -187,13 +156,12 @@ compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_st
                      eps_study_age, distribution, target_dist, eps_target)
   train_dat <- sim_dat[["train_dat"]]
   target_dat <- sim_dat[["target_dat"]]
-  
-  covars <- c("sex", "smstat", "weight", "age", "madrs")
-  
+
   
   ## Fit mixed effects model
-  mod <- lmer(Y ~ age + madrs + sex + W + W:age +
-                  (W + W:age | S), data=train_dat)
+  mod <- lmer(Y ~  madrs + sex + W*age +
+                  (W + W:age | S), data=train_dat,
+              control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=10000)))
   sum <- summary(mod)
   
   
@@ -204,8 +172,8 @@ compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_st
   glht_res <- assess_interval(glht_train, glht_target)
     
   #manual PI
-  manual_train <- manual_pi(train_dat, mod)
-  manual_target <- manual_pi(target_dat, mod)
+  manual_train <- manual_pi(train_dat, mod, K)
+  manual_target <- manual_pi(target_dat, mod, K)
   manual_res <- assess_interval(manual_train, manual_target)
 
   #bootstrap PI
@@ -216,7 +184,7 @@ compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_st
   
   ## Save results
   return(list(sum=sum, glht_res=glht_res, manual_res=manual_res, boot_res=boot_res,
-              N=N, K=K, n_mean=n_mean, n_sd=n_sd,
-              eps_study_m=eps_study_m, eps_study_tau=eps_study_tau, 
-              distribution=distribution, target_dist=target_dist))
+              N=N, K=K, n_mean=n_mean, n_sd=n_sd, eps_study_m=eps_study_m, 
+              eps_study_tau=eps_study_tau, eps_study_age=eps_study_age,
+              distribution=distribution, target_dist=target_dist, eps_target=eps_target))
 }
