@@ -11,7 +11,7 @@ source("R/MDD_Generation_OOSEst.R")
 
 #prediction interval by hand ####
 #get variance components of model
-matrix_var <- function(mod) {
+matrix_var <- function(mod, rand_int=T) {
 
   #calculate variances
   fc <- vcov(mod) #covariance matrix of fixed effects
@@ -20,20 +20,26 @@ matrix_var <- function(mod) {
   #matrix calculation
   beta <- matrix(fixef(mod)[c("W","W:age")], nrow=2) #beta-hat
   var_beta <- fc[c("W","W:age"),c("W","W:age")] #Var(beta-hat)
-  rand <- rc[c(which(rc$var1=="W" & is.na(rc$var2)==T),
-               which(rc$var1=="W" & rc$var2=="W:age"),
-               which(rc$var1=="W" & rc$var2=="W:age"),
-               which(rc$var1=="W:age" & is.na(rc$var2)==T)), "vcov"] #can I clean this up??
-  var_rand <- matrix(rand, nrow=2, dimnames=list(c("W","W:age"),c("W","W:age"))) #Var(ranef) 
+  
+  if (rand_int == T) {
+    rand <- rc[c(which(rc$var1=="W" & is.na(rc$var2)==T),
+                 which(rc$var1=="W" & rc$var2=="W:age"),
+                 which(rc$var1=="W" & rc$var2=="W:age"),
+                 which(rc$var1=="W:age" & is.na(rc$var2)==T)), "vcov"] #can I clean this up??
+    var_rand <- matrix(rand, nrow=2, dimnames=list(c("W","W:age"),c("W","W:age"))) #Var(ranef) 
+  } else {
+    rand <- rc[c(which(rc$var1=="W" & is.na(rc$var2)==T)), "vcov"] #can I clean this up??
+    var_rand <- matrix(rand, dimnames=list(c("W"),c("W"))) #Var(ranef) 
+  }
   
   return(list(beta=beta, var_beta=var_beta, var_rand=var_rand))
 }
 
 #add pis to dataset
-manual_pi <- function(df, mod, K) {
+manual_pi <- function(df, mod, K, rand_int=T) {
   
   #get variances
-  res <- matrix_var(mod)
+  res <- matrix_var(mod, rand_int)
   beta <- res$beta
   var_beta <- res$var_beta
   var_rand <- res$var_rand
@@ -42,9 +48,10 @@ manual_pi <- function(df, mod, K) {
   X <- df %>%
     mutate(trt = 1) %>%
     dplyr::select(trt, age) %>%
-    as.matrix() #X (same as Z in this model)
+    as.matrix() #X
+  if (rand_int == T) { Z <- X } else { Z <- X[,1] }
   mean_theta <- X %*% beta %>% c() #theta-hat
-  vcov_theta <- X %*% var_beta %*% t(X) + X %*% var_rand %*% t(X)
+  vcov_theta <- X %*% var_beta %*% t(X) + Z %*% var_rand %*% t(Z)
   var_theta <- diag(vcov_theta) #Var(theta-hat)
   
   #prediction interval
@@ -87,11 +94,16 @@ glht_ci <- function(df, mod) {
 
 #prediction interval by bootstrap ####
 #create intervals from bootstrap
-sample_cate <- function(x, boot_fix, boot_rand) {
+sample_cate <- function(x, boot_fix, boot_rand, rand_int=T) {
   
   #get cate|x according to each coefficient
-  cates <- (boot_fix$W + boot_rand$W) + 
-    (boot_fix$W.age + boot_rand$W.age)*x
+  if (rand_int == T) {
+    cates <- (boot_fix$W + boot_rand$W) + 
+      (boot_fix$W.age + boot_rand$W.age)*x
+  } else {
+    cates <- (boot_fix$W + boot_rand$W) + 
+      (boot_fix$W.age)*x
+  }
   
   #calculate interval over all iterations
   mean <- mean(cates)
@@ -103,20 +115,20 @@ sample_cate <- function(x, boot_fix, boot_rand) {
 }
 
 #bootstrap and add intervals to data
-boot_pi <- function(df, mod) {
+boot_pi <- function(df, mod, rand_int=T) {
   
   #get var-covar of fixed and random effects from model
-  res <- matrix_var(mod) 
+  res <- matrix_var(mod, rand_int) 
   
   #randomly sample fixed and random coefficients
   boot_fix <- mvrnorm(n=1000, mu=c(res$beta), Sigma=res$var_beta) %>%
     data.frame()
-  boot_rand <- mvrnorm(n=1000, mu=c(0,0), Sigma=res$var_rand) %>%
+  boot_rand <- mvrnorm(n=1000, mu=rep(0, nrow(res$var_rand)), Sigma=res$var_rand) %>%
     data.frame() #assume ranefs have mean 0
   
   #apply coefficients to estimate cate for all ages
   intervals <- map_dfr(.x=df$age, .f=sample_cate,
-                             boot_fix=boot_fix, boot_rand=boot_rand)
+                       boot_fix=boot_fix, boot_rand=boot_rand, rand_int=rand_int)
   df <- df %>%
     bind_cols(intervals)
   
@@ -139,9 +151,14 @@ assess_interval <- function(train_dat, target_dat) {
   train_length <- mean(train_dat$upper - train_dat$lower)
   target_length <- mean(target_dat$upper - target_dat$lower)
   
+  #calculate signficance
+  train_significance <- sum(sign(train_dat$lower) == sign(train_dat$upper))/nrow(train_dat)
+  target_significance <- sum(sign(target_dat$lower) == sign(target_dat$upper))/nrow(target_dat)
+  
   return(c(train_mse = train_mse, target_mse = target_mse,
            train_coverage = train_coverage, target_coverage = target_coverage,
-           train_length = train_length, target_length = target_length))
+           train_length = train_length, target_length = target_length,
+           train_significance = train_significance, target_significance = target_significance))
   
 }
 
@@ -158,32 +175,55 @@ compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_st
   target_dat <- sim_dat[["target_dat"]]
 
   
-  ## Fit mixed effects model
+  ## Fit mixed effects models
+  #correct
   mod <- lmer(Y ~  madrs + sex + W*age +
                   (W + W:age | S), data=train_dat,
               control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=10000)))
   sum <- summary(mod)
   
+  #incorrect
+  mod_wrong <- lmer(Y ~  madrs + sex + W*age +
+                (W | S), data=train_dat,
+              control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=10000)))
+  sum <- summary(mod_wrong)
   
-  ## Calculate mean and CIs for individual and assess accuracy
+  
+  ## Calculate mean and CIs for individuals and assess accuracy
   #confidence interval
   glht_train <- glht_ci(train_dat, mod)
   glht_target <- glht_ci(target_dat, mod)
   glht_res <- assess_interval(glht_train, glht_target)
+  
+  #confidence interval - incorrectly specified
+  glht_train_wrong <- glht_ci(train_dat, mod_wrong)
+  glht_target_wrong <- glht_ci(target_dat, mod_wrong)
+  glht_res_wrong <- assess_interval(glht_train_wrong, glht_target_wrong)
     
   #manual PI
-  manual_train <- manual_pi(train_dat, mod, K)
-  manual_target <- manual_pi(target_dat, mod, K)
+  manual_train <- manual_pi(train_dat, mod, K, rand_int=T)
+  manual_target <- manual_pi(target_dat, mod, K, rand_int=T)
   manual_res <- assess_interval(manual_train, manual_target)
+  
+  #manual PI - incorrectly specified
+  manual_train_wrong <- manual_pi(train_dat, mod_wrong, K, rand_int=F)
+  manual_target_wrong <- manual_pi(target_dat, mod_wrong, K, rand_int=F)
+  manual_res_wrong <- assess_interval(manual_train_wrong, manual_target_wrong)
 
   #bootstrap PI
-  boot_train <- boot_pi(train_dat, mod)
-  boot_target <- boot_pi(target_dat, mod)
+  boot_train <- boot_pi(train_dat, mod, rand_int=T)
+  boot_target <- boot_pi(target_dat, mod, rand_int=T)
   boot_res <- assess_interval(boot_train, boot_target)
+  
+  #bootstrap PI - incorrectly specified
+  boot_train_wrong <- boot_pi(train_dat, mod_wrong, rand_int=F)
+  boot_target_wrong <- boot_pi(target_dat, mod_wrong, rand_int=F)
+  boot_res_wrong <- assess_interval(boot_train_wrong, boot_target_wrong)
   
   
   ## Save results
-  return(list(sum=sum, glht_res=glht_res, manual_res=manual_res, boot_res=boot_res,
+  return(list(sum=sum, glht_res=glht_res, glht_res_wrong=glht_res_wrong, manual_res=manual_res, 
+              manual_res_wrong=manual_res_wrog, boot_res=boot_res, boot_res_wrong=boot_res_wrong,
               N=N, K=K, n_mean=n_mean, n_sd=n_sd, eps_study_m=eps_study_m, 
               eps_study_tau=eps_study_tau, eps_study_age=eps_study_age,
               distribution=distribution, target_dist=target_dist, eps_target=eps_target))
