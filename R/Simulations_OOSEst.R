@@ -6,13 +6,13 @@ library(grf)
 library(fastDummies)
 library(nnet)
 
-source("R/Bootstrap_OOSEst.R")
 source("R/MDD_Generation_OOSEst.R")
+source("R/MA_OOSEst.R")
 
 # set up data
 N <- 100
 K <- 10
-n_mean <- 500
+n_mean <- 200
 n_sd <- 0
 eps_target <- 0
 

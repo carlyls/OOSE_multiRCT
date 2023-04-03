@@ -186,7 +186,7 @@ compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_st
   mod_wrong <- lmer(Y ~  madrs + sex + W*age +
                 (W | S), data=train_dat,
               control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=10000)))
-  sum <- summary(mod_wrong)
+  sum_wrong <- summary(mod_wrong)
   
   
   ## Calculate mean and CIs for individuals and assess accuracy
@@ -222,8 +222,8 @@ compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_st
   
   
   ## Save results
-  return(list(sum=sum, glht_res=glht_res, glht_res_wrong=glht_res_wrong, manual_res=manual_res, 
-              manual_res_wrong=manual_res_wrog, boot_res=boot_res, boot_res_wrong=boot_res_wrong,
+  return(list(sum=sum, sum_wrong=sum_wrong, glht_res=glht_res, glht_res_wrong=glht_res_wrong, manual_res=manual_res, 
+              manual_res_wrong=manual_res_wrong, boot_res=boot_res, boot_res_wrong=boot_res_wrong,
               N=N, K=K, n_mean=n_mean, n_sd=n_sd, eps_study_m=eps_study_m, 
               eps_study_tau=eps_study_tau, eps_study_age=eps_study_age,
               distribution=distribution, target_dist=target_dist, eps_target=eps_target))
