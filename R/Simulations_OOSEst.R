@@ -43,6 +43,6 @@ results <- compare_oos(N=N, K=K, n_mean=n_mean, n_sd=n_sd, eps_study_m=eps_study
                        eps_study_tau=eps_study_tau, eps_study_age=eps_study_age,
                        distribution=distribution, target_dist=target_dist, eps_target=eps_target)
 save(results, file=paste(paste("results",seed,N,K,n_mean,n_sd,eps_study_m,eps_study_tau,
-                               eps_study_age,distribution,target_dist,eps_target,sep = "_"),
+                               eps_study_age,distribution,target_dist,eps_target,iteration,sep = "_"),
                          ".Rdata",sep=""))
 

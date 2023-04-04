@@ -222,9 +222,17 @@ compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_st
   
   
   ## Save results
-  return(list(sum=sum, sum_wrong=sum_wrong, glht_res=glht_res, glht_res_wrong=glht_res_wrong, manual_res=manual_res, 
-              manual_res_wrong=manual_res_wrong, boot_res=boot_res, boot_res_wrong=boot_res_wrong,
-              N=N, K=K, n_mean=n_mean, n_sd=n_sd, eps_study_m=eps_study_m, 
-              eps_study_tau=eps_study_tau, eps_study_age=eps_study_age,
-              distribution=distribution, target_dist=target_dist, eps_target=eps_target))
+  #data frame of parameters
+  params <- data.frame(N=N, K=K, n_mean=n_mean, n_sd=n_sd, eps_study_m=eps_study_m, 
+                       eps_study_tau=eps_study_tau, eps_study_age=eps_study_age,
+                       distribution=distribution, target_dist=target_dist, eps_target=eps_target)
+  
+  #data frame of results
+  all_res <- cbind(glht_res, glht_res_wrong, manual_res, 
+               manual_res_wrong, boot_res, boot_res_wrong) %>%
+    data.frame() %>%
+    rownames_to_column("Metric") %>%
+    cbind(params)
+  
+  return(list(sum=sum, sum_wrong=sum_wrong, all_res=all_res))
 }
