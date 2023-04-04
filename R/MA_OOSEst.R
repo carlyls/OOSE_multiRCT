@@ -25,10 +25,10 @@ matrix_var <- function(mod, rand_int=T) {
     rand <- rc[c(which(rc$var1=="W" & is.na(rc$var2)==T),
                  which(rc$var1=="W" & rc$var2=="W:age"),
                  which(rc$var1=="W" & rc$var2=="W:age"),
-                 which(rc$var1=="W:age" & is.na(rc$var2)==T)), "vcov"] #can I clean this up??
+                 which(rc$var1=="W:age" & is.na(rc$var2)==T)), "vcov"] 
     var_rand <- matrix(rand, nrow=2, dimnames=list(c("W","W:age"),c("W","W:age"))) #Var(ranef) 
   } else {
-    rand <- rc[c(which(rc$var1=="W" & is.na(rc$var2)==T)), "vcov"] #can I clean this up??
+    rand <- rc[c(which(rc$var1=="W" & is.na(rc$var2)==T)), "vcov"] 
     var_rand <- matrix(rand, dimnames=list(c("W"),c("W"))) #Var(ranef) 
   }
   

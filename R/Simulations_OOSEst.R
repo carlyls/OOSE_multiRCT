@@ -20,7 +20,7 @@ settings <- expand.grid(eps_combo = c("0.05 0.05 0.05", "0.05 1 0.05", "0.05 1 1
                                            "1 1 1", "1 3 1"),
                         distribution = c("same", "varying_madrs", "halfdiff_madrsage", "separate_age"),
                         target_dist = c("same", "upweight", "different"),
-                        iteration = c(1:1000)) %>%
+                        iteration = c(1:100)) %>%
   separate(eps_combo, into=c("eps_study_m", "eps_study_tau", "eps_study_age"), sep=" ") %>%
   mutate(eps_study_m = as.numeric(eps_study_m),
          eps_study_tau = as.numeric(eps_study_tau),
