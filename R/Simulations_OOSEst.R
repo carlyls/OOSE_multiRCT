@@ -9,21 +9,20 @@ library(nnet)
 source("R/MDD_Generation_OOSEst.R")
 source("R/MA_OOSEst.R")
 
-# set up data
-N <- 100
+# set up parameters
 K <- 10
 n_mean <- 200
 n_sd <- 0
-eps_target <- 0
+n_target <- 100
 
-settings <- expand.grid(eps_combo = c("0.05 0.05 0.05", "0.05 1 0.05", "0.05 1 1",
-                                           "1 1 1", "1 3 1"),
+settings <- expand.grid(eps_study_m = c(0.05, 1),
+                        eps_combo = c("0.05 0", "0.5 0.05", "0.5 0.5",
+                                      "1 0.05", "1 0.5", "1 1"),
                         distribution = c("same", "varying_madrs", "halfdiff_madrsage", "separate_age"),
-                        target_dist = c("same", "upweight", "different"),
+                        target_dist = c("same", "different"),
                         iteration = c(1:100)) %>%
-  separate(eps_combo, into=c("eps_study_m", "eps_study_tau", "eps_study_age"), sep=" ") %>%
-  mutate(eps_study_m = as.numeric(eps_study_m),
-         eps_study_tau = as.numeric(eps_study_tau),
+  separate(eps_combo, into=c("eps_study_tau", "eps_study_age"), sep=" ") %>%
+  mutate(eps_study_tau = as.numeric(eps_study_tau),
          eps_study_age = as.numeric(eps_study_age))
 
 #sets the row of the settings that you will use
@@ -39,10 +38,10 @@ seed <- i
 
 #now code
 set.seed(seed)
-results <- compare_oos(N=N, K=K, n_mean=n_mean, n_sd=n_sd, eps_study_m=eps_study_m, 
+results <- compare_oos(K=K, n_mean=n_mean, n_sd=n_sd, n_target=n_target, eps_study_m=eps_study_m, 
                        eps_study_tau=eps_study_tau, eps_study_age=eps_study_age,
-                       distribution=distribution, target_dist=target_dist, eps_target=eps_target)
-save(results, file=paste(paste("results",seed,N,K,n_mean,n_sd,eps_study_m,eps_study_tau,
-                               eps_study_age,distribution,target_dist,eps_target,iteration,sep = "_"),
+                       distribution=distribution, target_dist=target_dist)
+save(results, file=paste(paste("results",seed,iteration,K,n_mean,n_sd,n_target,eps_study_m,eps_study_tau,
+                               eps_study_age,distribution,target_dist,sep = "_"),
                          ".Rdata",sep=""))
 

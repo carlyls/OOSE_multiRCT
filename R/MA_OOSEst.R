@@ -17,22 +17,25 @@ matrix_var <- function(mod, rand_int=T) {
   fc <- vcov(mod) #covariance matrix of fixed effects
   rc <- as.data.frame(VarCorr(mod)) #variance and covariances of random effects
   
-  #matrix calculation
+  #fixed effects
   beta <- matrix(fixef(mod)[c("W","W:age")], nrow=2) #beta-hat
   var_beta <- fc[c("W","W:age"),c("W","W:age")] #Var(beta-hat)
   
+  #random effects
   if (rand_int == T) {
+    u <- ranef(mod)$S[c("W","W:age")] %>% t() %>% matrix() #u-hat
     rand <- rc[c(which(rc$var1=="W" & is.na(rc$var2)==T),
                  which(rc$var1=="W" & rc$var2=="W:age"),
                  which(rc$var1=="W" & rc$var2=="W:age"),
                  which(rc$var1=="W:age" & is.na(rc$var2)==T)), "vcov"] 
     var_rand <- matrix(rand, nrow=2, dimnames=list(c("W","W:age"),c("W","W:age"))) #Var(ranef) 
   } else {
+    u <- ranef(mod)$S[c("W")] %>% t() %>% matrix() #u-hat
     rand <- rc[c(which(rc$var1=="W" & is.na(rc$var2)==T)), "vcov"] 
     var_rand <- matrix(rand, dimnames=list(c("W"),c("W"))) #Var(ranef) 
   }
   
-  return(list(beta=beta, var_beta=var_beta, var_rand=var_rand))
+  return(list(beta=beta, var_beta=var_beta, u=u, var_rand=var_rand))
 }
 
 #add pis to dataset
@@ -42,6 +45,7 @@ manual_pi <- function(df, mod, K, rand_int=T) {
   res <- matrix_var(mod, rand_int)
   beta <- res$beta
   var_beta <- res$var_beta
+  u <- res$u
   var_rand <- res$var_rand
   
   #calculate theta-hats
@@ -49,8 +53,27 @@ manual_pi <- function(df, mod, K, rand_int=T) {
     mutate(trt = 1) %>%
     dplyr::select(trt, age) %>%
     as.matrix() #X
-  if (rand_int == T) { Z <- X } else { Z <- X[,1] }
-  mean_theta <- X %*% beta %>% c() #theta-hat
+  
+  if ("S" %in% names(df)) { #training data structure is different
+    Zlist <- list()
+    var_rand_train <- list()
+    for (s in 1:K) {
+      X_S <- X[df$S==s,]
+      if (rand_int == T) { Z_S <- X_S } else { Z_S <- X_S[,1] }
+      Zlist[[s]] <- Z_S
+      var_rand_train[[s]] <- var_rand
+    }
+    Z <- do.call("bdiag", Zlist) %>% as.matrix()
+    var_rand <- do.call("bdiag", var_rand_train) %>% as.matrix()
+    
+    mean_theta <- X %*% beta + Z %*% u %>% c()
+
+  } else { #target data doesn't require block diagonal matrices
+    if (rand_int == T) { Z <- X } else { Z <- X[,1] }
+    
+    mean_theta <- X %*% beta %>% c() #theta-hat
+  }
+  
   vcov_theta <- X %*% var_beta %*% t(X) + Z %*% var_rand %*% t(Z)
   var_theta <- diag(vcov_theta) #Var(theta-hat)
   
@@ -164,13 +187,13 @@ assess_interval <- function(train_dat, target_dat) {
 
 
 #overall function ####
-compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=3, 
-                        eps_study_age=0.05, distribution="same", target_dist="same", eps_target=0) {
+compare_oos <- function(K=10, n_mean=200, n_sd=0, n_target=100, eps_study_m=0.05, eps_study_tau=0.05, 
+                        eps_study_age=0.05, distribution="same", target_dist="same") {
   
   
   ## Simulate training and target (OOS) data
-  sim_dat <- gen_mdd(K, n_mean, n_sd, eps_study_m, eps_study_tau, 
-                     eps_study_age, distribution, target_dist, eps_target)
+  sim_dat <- gen_mdd(K, n_mean, n_sd, n_target, eps_study_m, eps_study_tau, 
+                     eps_study_age, distribution, target_dist)
   train_dat <- sim_dat[["train_dat"]]
   target_dat <- sim_dat[["target_dat"]]
 
@@ -223,9 +246,9 @@ compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, eps_st
   
   ## Save results
   #data frame of parameters
-  params <- data.frame(N=N, K=K, n_mean=n_mean, n_sd=n_sd, eps_study_m=eps_study_m, 
+  params <- data.frame(K=K, n_mean=n_mean, n_sd=n_sd, n_target=n_target, eps_study_m=eps_study_m, 
                        eps_study_tau=eps_study_tau, eps_study_age=eps_study_age,
-                       distribution=distribution, target_dist=target_dist, eps_target=eps_target)
+                       distribution=distribution, target_dist=target_dist)
   
   #data frame of results
   all_res <- cbind(glht_res, glht_res_wrong, manual_res, 

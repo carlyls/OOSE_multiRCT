@@ -44,8 +44,8 @@ sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_ag
 }
 
 #main function
-gen_mdd <- function (K=10, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0.05, 
-                     eps_study_age=0.05, distribution="same", target_dist="same", eps_target=0) {
+gen_mdd <- function (K=10, n_mean=200, n_sd=0, n_target=100, eps_study_m=0.05, eps_study_tau=0.05, 
+                     eps_study_age=0.05, distribution="same", target_dist="same") {
   
   #training data
   train_dat <- data.frame()
@@ -70,31 +70,31 @@ gen_mdd <- function (K=10, n_mean=200, n_sd=0, eps_study_m=0.05, eps_study_tau=0
   
   #target data
   if (target_dist == "same") {
-    target_dat <- train_dat[sample(nrow(train_dat), 100),] %>%
+    target_dat <- train_dat[sample(nrow(train_dat), n_target),] %>%
       dplyr::select(-S, -eps_m, -eps_tau, -eps_age)
     
   } else if (target_dist == "upweight") {
     train_weight <- train_dat %>%
       mutate(study_weight = ifelse(S %in% c(3, 5), 3, 1))
-    target_dat <- train_weight[sample(nrow(train_weight), 100, prob=train_weight$study_weight),] %>%
+    target_dat <- train_weight[sample(nrow(train_weight), n_target, prob=train_weight$study_weight),] %>%
       dplyr::select(-study_weight, -S, -eps_m, -eps_tau, -eps_age)
     
   } else if (target_dist == "different") {
     target_mean <- c(age=30, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=25)
-    target_dat <- MASS::mvrnorm(n=100, mu=target_mean, Sigma=Sigma) %>%
+    target_dat <- MASS::mvrnorm(n=n_target, mu=target_mean, Sigma=Sigma) %>%
       as.data.frame() %>%
       mutate(sex = ifelse(sex > 1-0.6784, 1, 0),
              smstat = ifelse(smstat > 1-0.3043, 1, 0),
-             eps = rnorm(n=100, mean=0, sd=.05),
-             W = rbinom(n=100, size=1, prob=.5))
+             eps = rnorm(n=n_target, mean=0, sd=.05),
+             W = rbinom(n=n_target, size=1, prob=.5))
     
   }
   
   #add error terms to target sample
   target_dat <- target_dat %>%
-    mutate(eps_m = rnorm(n=1, mean=0, sd=eps_target),
-           eps_tau = rnorm(n=1, mean=0, sd=eps_target),
-           eps_age = rnorm(n=1, mean=0, sd=eps_target))
+    mutate(eps_m = rnorm(n=n_target, mean=0, sd=eps_study_m),
+           eps_tau = rnorm(n=n_target, mean=0, sd=eps_study_tau),
+           eps_age = rnorm(n=n_target, mean=0, sd=eps_study_age))
   
   #m and tau
   train_dat <- train_dat %>% 
