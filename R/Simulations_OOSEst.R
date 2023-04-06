@@ -1,10 +1,12 @@
 ### Running Simulations for Methods to Estimate on OOS Individuals ###
 
 library(tidyverse)
+library(lme4)
 library(rsample)
-library(grf)
-library(fastDummies)
-library(nnet)
+library(multcomp)
+library(MASS)
+#library(pimeta)
+#library(merTools)
 
 source("R/MDD_Generation_OOSEst.R")
 source("R/MA_OOSEst.R")
