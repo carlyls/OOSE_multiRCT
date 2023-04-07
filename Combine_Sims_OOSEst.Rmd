@@ -1,0 +1,55 @@
+---
+title: 'Estimating Confidence Intervals for CATE in Target Sample: Simulation Results'
+author: "Carly Lupton Brantner"
+date: '2023-04-07'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Combining Simulation Resultss
+
+```{r}
+library(tidyverse)
+
+#read in all files
+setwd("~/Desktop/Cluster/OOSEst")
+files <- list.files(pattern=".Rdata")
+
+mylist <- lapply(files, function(x) {
+    load(file = x)
+    get(ls()[ls()!= "filename"])
+  })
+
+get_res <- function(x) {return(x$all_res)}
+
+all <- map_dfr(.x=mylist, .f=get_res)
+
+#checking output
+seeds <- strsplit(files,"_") %>% map_chr(.f=function(x) x[2])
+length(unique(seeds)) == length(files) #making sure every iteration has a unique seed
+
+nrow(all) #to make sure every iteration ran
+```
+
+```{r}
+mean_sd <- function(x) {
+  return(paste(mean(x), sd(x), sep=" "))
+}
+#average across iterations
+all_avg <- all %>%
+  group_by(Metric, K, n_mean, n_sd, n_target, eps_study_m,
+           eps_study_tau, eps_study_age, distribution, target_dist) %>%
+  summarise(across(glht_res:boot_res_wrong, ~ mean_sd(.x)))
+
+#long format for plotting
+all_long <- all_avg %>%
+  pivot_longer(cols=glht_res:boot_res_wrong,
+               names_to="Method",
+               values_to="Value") %>%
+  separate(Value, into=c("Mean", "SD"), sep=" ") %>%
+  mutate_at(c("Mean", "SD"), as.numeric)
+```
+
