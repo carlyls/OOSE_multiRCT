@@ -50,6 +50,39 @@ all_long <- all_avg %>%
                names_to="Method",
                values_to="Value") %>%
   separate(Value, into=c("Mean", "SD"), sep=" ") %>%
-  mutate_at(c("Mean", "SD"), as.numeric)
+  mutate_at(c("Mean", "SD"), as.numeric) %>%
+  mutate(eps = factor(paste(eps_study_m, eps_study_tau, eps_study_age, sep="_")),
+         spec = ifelse(grepl("wrong", Method)==T, "Incorrectly Specified", "Correctly Specified"),
+         model = ifelse(grepl("glht", Method)==T, "GLHT",
+                        ifelse(grepl("manual", Method)==T, "Manual", "Boot")))
 ```
+
+```{r}
+#plot target coverage
+all_long %>%
+  filter(Metric == "target_coverage") %>%
+  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
+  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
+  #geom_line() +
+  facet_grid(distribution~target_dist, scales='free') +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r}
+#plot target coverage
+all_long %>%
+  filter(Metric == "target_coverage") %>%
+  group_by(Method, model, spec) %>%
+  summarise(Mean=mean(Mean)) %>%
+  ggplot(aes(x=model, y=Mean, group=1, color=spec)) +
+  geom_point(size=5) +
+  theme(axis.text.x = element_text(angle=45, hjust=1, vjust=1),
+        plot.margin=margin(10,10,10,30),
+        text = element_text(size=15)) +
+  labs(color="Single-Study Approach") +
+  xlab("Aggregation Approach") +
+  scale_y_continuous(labels = scales::percent)
+```
+
 
