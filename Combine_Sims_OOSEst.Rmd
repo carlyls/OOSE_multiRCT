@@ -17,13 +17,13 @@ library(tidyverse)
 
 ```{r, eval=F}
 #read in all files
-setwd("~/Desktop/Cluster/OOSEst")
+setwd("~/Desktop/Cluster/OOSEst/12Apr2023")
 files <- list.files(pattern=".Rdata")
 
 all <- c()
 for (i in 1:length(files)) {
   load(file = files[i])
-  all <- bind_rows(all, results$all_res)
+  all <- bind_rows(all, results)
   print(i)
 }
 
@@ -32,7 +32,7 @@ seeds <- strsplit(files,"_") %>% map_chr(.f=function(x) x[2])
 length(unique(seeds)) == length(files) #making sure every iteration has a unique seed
 
 nrow(all) #to make sure every iteration ran
-setwd("~/Dropbox/Moderation/Out of Sample Prediction")
+setwd("~/Dropbox/Moderation/Out of Sample Prediction/Data")
 saveRDS(all, "all_results_12Apr2023.RDS")
 ```
 
