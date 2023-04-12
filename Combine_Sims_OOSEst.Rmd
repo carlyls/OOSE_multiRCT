@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Combining Simulation Resultss
+## Combining Simulation Results
 
 ```{r}
 library(tidyverse)
@@ -18,20 +18,28 @@ library(tidyverse)
 setwd("~/Desktop/Cluster/OOSEst")
 files <- list.files(pattern=".Rdata")
 
-mylist <- lapply(files, function(x) {
-    load(file = x)
-    get(ls()[ls()!= "filename"])
-  })
+# mylist <- lapply(files, function(x) {
+#     load(file = x)
+#     get(ls()[ls()!= "filename"])
+#   })
 
-get_res <- function(x) {return(x$all_res)}
+all <- c()
+for (i in 1:length(files)) {
+  load(file = files[i])
+  all <- bind_rows(all, results$all_res)
+  print(i)
+}
 
-all <- map_dfr(.x=mylist, .f=get_res)
+# get_res <- function(x) {return(x$all_res)}
+# 
+# all <- map_dfr(.x=mylist, .f=get_res)
 
 #checking output
 seeds <- strsplit(files,"_") %>% map_chr(.f=function(x) x[2])
 length(unique(seeds)) == length(files) #making sure every iteration has a unique seed
 
 nrow(all) #to make sure every iteration ran
+#saveRDS(all, "all_results_11Apr2023.RDS", "~/Dropbox/Moderation/Out of Sample Prediction")
 ```
 
 ```{r}
@@ -51,7 +59,8 @@ all_long <- all_avg %>%
                values_to="Value") %>%
   separate(Value, into=c("Mean", "SD"), sep=" ") %>%
   mutate_at(c("Mean", "SD"), as.numeric) %>%
-  mutate(eps = factor(paste(eps_study_m, eps_study_tau, eps_study_age, sep="_")),
+  mutate(eps = factor(paste(eps_study_tau, eps_study_age, sep="_")),
+         eps_study_m = factor(eps_study_m),
          spec = ifelse(grepl("wrong", Method)==T, "Incorrectly Specified", "Correctly Specified"),
          model = ifelse(grepl("glht", Method)==T, "GLHT",
                         ifelse(grepl("manual", Method)==T, "Manual", "Boot")))
@@ -59,15 +68,60 @@ all_long <- all_avg %>%
 
 ```{r}
 #plot target coverage
+#same target dist
 all_long %>%
-  filter(Metric == "target_coverage") %>%
+  filter(Metric == "target_coverage",
+         target_dist == "same") %>%
   ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
   geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
-  #geom_line() +
-  facet_grid(distribution~target_dist, scales='free') +
+  facet_grid(distribution~eps_study_m, scales='free') +
   scale_y_continuous(labels = scales::percent) +
-  theme(axis.text.x = element_text(angle = 90))
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab("Variability of Trt and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent in Target Sample")
+
+#different target dist
+all_long %>%
+  filter(Metric == "target_coverage",
+         target_dist == "different") %>%
+  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
+  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
+  facet_grid(distribution~eps_study_m, scales='free') +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab("Variability of Trt and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent in Target Sample")
 ```
+
+```{r}
+#removing GLHT
+#same target dist
+all_long %>%
+  filter(Metric == "target_coverage",
+         target_dist == "same",
+         model != "glht") %>%
+  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
+  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
+  facet_grid(distribution~eps_study_m, scales='free') +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab("Variability of Trt and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent in Target Sample")
+
+#different target dist
+all_long %>%
+  filter(Metric == "target_coverage",
+         target_dist == "different",
+         model != "glht") %>%
+  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
+  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
+  facet_grid(distribution~eps_study_m, scales='free') +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab("Variability of Trt and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent in Target Sample")
+```
+
 
 ```{r}
 #plot target coverage

@@ -258,5 +258,5 @@ compare_oos <- function(K=10, n_mean=200, n_sd=0, n_target=100, eps_study_m=0.05
     rownames_to_column("Metric") %>%
     cbind(params)
   
-  return(list(sum=sum, sum_wrong=sum_wrong, all_res=all_res))
+  return(all_res)
 }
