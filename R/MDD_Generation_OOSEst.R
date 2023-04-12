@@ -100,13 +100,18 @@ gen_mdd <- function (K=10, n_mean=200, n_sd=0, n_target=100, eps_study_m=0.05, e
            eps_tau = rnorm(n=n_target, mean=0, sd=eps_study_tau),
            eps_age = rnorm(n=n_target, mean=0, sd=eps_study_age))
   
-  #m and tau
+  #standardize age and madrs
+  #add m and tau
   train_dat <- train_dat %>% 
-    mutate(m = (-1.26 + eps_m) - 0.015*age - 0.49*madrs - 0.093*sex,
-           tau = (-0.596 + eps_tau) + (0.068 + eps_age)*age)
+    mutate(age = (age - mean(age))/sd(age),
+           madrs = (madrs - mean(madrs))/sd(madrs),
+           m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
+           tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
   target_dat <- target_dat %>% 
-    mutate(m = (-1.26 + eps_m) - 0.015*age - 0.49*madrs - 0.093*sex,
-           tau = (-0.596 + eps_tau) + (0.068 + eps_age)*age)
+    mutate(age = (age - mean(age))/sd(age),
+           madrs = (madrs - mean(madrs))/sd(madrs),
+           m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
+           tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
   
   #outcome Y
   train_dat <- train_dat %>%

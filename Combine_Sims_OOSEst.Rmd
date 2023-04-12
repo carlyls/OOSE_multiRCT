@@ -11,17 +11,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Combining Simulation Results
 
-```{r}
+```{r, message=F}
 library(tidyverse)
+```
 
+```{r, eval=F}
 #read in all files
 setwd("~/Desktop/Cluster/OOSEst")
 files <- list.files(pattern=".Rdata")
-
-# mylist <- lapply(files, function(x) {
-#     load(file = x)
-#     get(ls()[ls()!= "filename"])
-#   })
 
 all <- c()
 for (i in 1:length(files)) {
@@ -30,19 +27,18 @@ for (i in 1:length(files)) {
   print(i)
 }
 
-# get_res <- function(x) {return(x$all_res)}
-# 
-# all <- map_dfr(.x=mylist, .f=get_res)
-
 #checking output
 seeds <- strsplit(files,"_") %>% map_chr(.f=function(x) x[2])
 length(unique(seeds)) == length(files) #making sure every iteration has a unique seed
 
 nrow(all) #to make sure every iteration ran
-#saveRDS(all, "all_results_11Apr2023.RDS", "~/Dropbox/Moderation/Out of Sample Prediction")
+setwd("~/Dropbox/Moderation/Out of Sample Prediction")
+saveRDS(all, "all_results_12Apr2023.RDS")
 ```
 
-```{r}
+```{r, message=F, warning=F}
+all <- readRDS("all_results_12Apr2023.RDS")
+
 mean_sd <- function(x) {
   return(paste(mean(x), sd(x), sep=" "))
 }
@@ -50,7 +46,9 @@ mean_sd <- function(x) {
 all_avg <- all %>%
   group_by(Metric, K, n_mean, n_sd, n_target, eps_study_m,
            eps_study_tau, eps_study_age, distribution, target_dist) %>%
-  summarise(across(glht_res:boot_res_wrong, ~ mean_sd(.x)))
+  summarise(across(glht_res:boot_res_wrong, ~ mean_sd(.x)),
+            n_iter = n())
+summary(all_avg$n_iter) #check iterations
 
 #long format for plotting
 all_long <- all_avg %>%
@@ -66,6 +64,8 @@ all_long <- all_avg %>%
                         ifelse(grepl("manual", Method)==T, "Manual", "Boot")))
 ```
 
+## Target CI Coverage
+
 ```{r}
 #plot target coverage
 #same target dist
@@ -74,11 +74,12 @@ all_long %>%
          target_dist == "same") %>%
   ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
   geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
-  facet_grid(distribution~eps_study_m, scales='free') +
+  facet_grid(distribution~eps_study_m) +
   scale_y_continuous(labels = scales::percent) +
   theme(axis.text.x = element_text(angle = 90)) +
   xlab("Variability of Trt and Trt*Age Coefficients") +
-  ylab("CI Coverage Percent in Target Sample")
+  ylab("CI Coverage Percent in Target Sample") +
+  ggtitle("Same Target Distribution")
 
 #different target dist
 all_long %>%
@@ -86,11 +87,12 @@ all_long %>%
          target_dist == "different") %>%
   ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
   geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
-  facet_grid(distribution~eps_study_m, scales='free') +
+  facet_grid(distribution~eps_study_m) +
   scale_y_continuous(labels = scales::percent) +
   theme(axis.text.x = element_text(angle = 90)) +
   xlab("Variability of Trt and Trt*Age Coefficients") +
-  ylab("CI Coverage Percent in Target Sample")
+  ylab("CI Coverage Percent in Target Sample") +
+  ggtitle("Different Target Distribution")
 ```
 
 ```{r}
@@ -99,29 +101,30 @@ all_long %>%
 all_long %>%
   filter(Metric == "target_coverage",
          target_dist == "same",
-         model != "glht") %>%
+         model != "GLHT") %>%
   ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
   geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
-  facet_grid(distribution~eps_study_m, scales='free') +
+  facet_grid(distribution~eps_study_m) +
   scale_y_continuous(labels = scales::percent) +
   theme(axis.text.x = element_text(angle = 90)) +
   xlab("Variability of Trt and Trt*Age Coefficients") +
-  ylab("CI Coverage Percent in Target Sample")
+  ylab("CI Coverage Percent in Target Sample") +
+  ggtitle("Same Target Distribution")
 
 #different target dist
 all_long %>%
   filter(Metric == "target_coverage",
          target_dist == "different",
-         model != "glht") %>%
+         model != "GLHT") %>%
   ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
   geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
-  facet_grid(distribution~eps_study_m, scales='free') +
+  facet_grid(distribution~eps_study_m) +
   scale_y_continuous(labels = scales::percent) +
   theme(axis.text.x = element_text(angle = 90)) +
   xlab("Variability of Trt and Trt*Age Coefficients") +
-  ylab("CI Coverage Percent in Target Sample")
+  ylab("CI Coverage Percent in Target Sample") +
+  ggtitle("Different Target Distribution")
 ```
-
 
 ```{r}
 #plot target coverage
@@ -138,5 +141,85 @@ all_long %>%
   xlab("Aggregation Approach") +
   scale_y_continuous(labels = scales::percent)
 ```
+
+### CI Coverage by Variance
+
+```{r}
+#same target dist, same training dist
+all_long %>%
+  filter(Metric == "target_coverage",
+         target_dist == "same",
+         model != "GLHT",
+         distribution == "same") %>%
+  ggplot(aes(x=factor(eps_study_age), y=Mean, group=Method, color=spec)) +
+  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
+  facet_grid(eps_study_tau~eps_study_m) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab("Variability Trt*Age Coefficients") +
+  ylab("CI Coverage Percent in Target Sample") +
+  ggtitle("Same Target Distribution and Same Training Distribution")
+```
+
+
+## Target CI Length
+
+```{r}
+#plot target ci length
+#same target dist
+all_long %>%
+  filter(Metric == "target_length",
+         target_dist == "same") %>%
+  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
+  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
+  facet_grid(distribution~eps_study_m, scales='free') +
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab("Variability of Trt and Trt*Age Coefficients") +
+  ylab("Mean CI Length in Target Sample") +
+  ggtitle("Same Target Distribution")
+
+#different target dist
+all_long %>%
+  filter(Metric == "target_length",
+         target_dist == "different") %>%
+  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
+  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
+  facet_grid(distribution~eps_study_m, scales='free') +
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab("Variability of Trt and Trt*Age Coefficients") +
+  ylab("Mean CI Length in Target Sample") +
+  ggtitle("Different Target Distribution")
+```
+
+## Target MSE
+
+```{r}
+#plot target mse
+#same target dist
+all_long %>%
+  filter(Metric == "target_mse",
+         target_dist == "same") %>%
+  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
+  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
+  facet_grid(distribution~eps_study_m, scales='free') +
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab("Variability of Trt and Trt*Age Coefficients") +
+  ylab("MSE in Target Sample") +
+  ggtitle("Same Target Distribution")
+
+#different target dist
+all_long %>%
+  filter(Metric == "target_mse",
+         target_dist == "different") %>%
+  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
+  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
+  facet_grid(distribution~eps_study_m, scales='free') +
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab("Variability of Trt and Trt*Age Coefficients") +
+  ylab("MSE in Target Sample") +
+  ggtitle("Different Target Distribution")
+```
+
+
 
 

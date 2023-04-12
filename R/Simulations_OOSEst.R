@@ -13,7 +13,7 @@ source("R/MA_OOSEst.R")
 
 # set up parameters
 K <- 10
-n_mean <- 200
+n_mean <- 500
 n_sd <- 0
 n_target <- 100
 
