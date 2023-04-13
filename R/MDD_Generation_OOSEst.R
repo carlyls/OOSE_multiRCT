@@ -48,7 +48,7 @@ sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_ag
 }
 
 #main function
-gen_mdd <- function (K=10, n_mean=200, n_sd=0, n_target=100, eps_study_m=0.05, eps_study_tau=0.05, 
+gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05, eps_study_tau=0.05, 
                      eps_study_age=0.05, distribution="same", target_dist="same") {
   
   #training data

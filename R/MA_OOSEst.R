@@ -12,38 +12,30 @@ source("R/MDD_Generation_OOSEst.R")
 
 #prediction interval by hand ####
 #get variance components of model
-matrix_var <- function(mod, rand_int=T) {
-
+matrix_var <- function(mod) {
+  
   #calculate variances
   fc <- vcov(mod) #covariance matrix of fixed effects
-  rc <- as.data.frame(VarCorr(mod)) #variance and covariances of random effects
+  rc <- Matrix::bdiag(VarCorr(mod)) #variance and covariances of random effects
   
   #fixed effects
-  beta <- matrix(fixef(mod)[c("W","W:age")], nrow=2) #beta-hat
-  var_beta <- fc[c("W","W:age"),c("W","W:age")] #Var(beta-hat)
+  beta <- fixef(mod)[grep("W", names(fixef(mod)))] %>% matrix() #beta-hat
+  var_beta <- fc[grep("W", rownames(fc)),
+                 grep("W", colnames(fc))] #Var(beta-hat)
   
   #random effects
-  if (rand_int == T) {
-    u <- ranef(mod)$S[c("W","W:age")] %>% t() %>% matrix() #u-hat
-    rand <- rc[c(which(rc$var1=="W" & is.na(rc$var2)==T),
-                 which(rc$var1=="W" & rc$var2=="W:age"),
-                 which(rc$var1=="W" & rc$var2=="W:age"),
-                 which(rc$var1=="W:age" & is.na(rc$var2)==T)), "vcov"] 
-    var_rand <- matrix(rand, nrow=2, dimnames=list(c("W","W:age"),c("W","W:age"))) #Var(ranef) 
-  } else {
-    u <- ranef(mod)$S[c("W")] %>% t() %>% matrix() #u-hat
-    rand <- rc[c(which(rc$var1=="W" & is.na(rc$var2)==T)), "vcov"] 
-    var_rand <- matrix(rand, dimnames=list(c("W"),c("W"))) #Var(ranef) 
-  }
+  u <- ranef(mod)$S[grep("W", colnames(ranef(mod)$S))] %>% t() %>% matrix()
+  var_rand <- rc[grep("W", rownames(rc)),
+                 grep("W", colnames(rc))]
   
   return(list(beta=beta, var_beta=var_beta, u=u, var_rand=var_rand))
 }
 
 #add pis to dataset
-manual_pi <- function(df, mod, K, rand_int=T) {
+manual_pi <- function(df, mod, K, covars_fix, covars_rand) {
   
   #get variances
-  res <- matrix_var(mod, rand_int)
+  res <- matrix_var(mod)
   beta <- res$beta
   var_beta <- res$var_beta
   u <- res$u
@@ -51,26 +43,28 @@ manual_pi <- function(df, mod, K, rand_int=T) {
   
   #calculate theta-hats
   X <- df %>%
-    mutate(trt = 1) %>%
-    dplyr::select(trt, age) %>%
-    as.matrix() #X
+    dplyr::select(W, all_of(covars_fix)) %>%
+    mutate(W = 1) %>%
+    as.matrix()
+  Z <- df %>%
+    dplyr::select(W, all_of(covars_rand)) %>%
+    mutate(W = 1) %>%
+    as.matrix()
   
   if ("S" %in% names(df)) { #training data structure is different
     Zlist <- list()
-    var_rand_train <- list()
-    for (s in 1:K) {
-      X_S <- X[df$S==s,]
-      if (rand_int == T) { Z_S <- X_S } else { Z_S <- X_S[,1] }
-      Zlist[[s]] <- Z_S
-      var_rand_train[[s]] <- var_rand
-    }
-    Z <- do.call("bdiag", Zlist) %>% as.matrix()
+    var_rand_train <- rep(list(var_rand), K)
     var_rand <- do.call("bdiag", var_rand_train) %>% as.matrix()
     
+    for (s in 1:K) {
+      Z_S <- Z[df$S==s,]
+      Zlist[[s]] <- Z_S
+    }
+    Z <- do.call("bdiag", Zlist) %>% as.matrix()
+    
     mean_theta <- X %*% beta + Z %*% u %>% c()
-
-  } else { #target data doesn't require block diagonal matrices
-    if (rand_int == T) { Z <- X } else { Z <- X[,1] }
+    
+  } else { #don't know u's for target data
     
     mean_theta <- X %*% beta %>% c() #theta-hat
   }
@@ -188,7 +182,7 @@ assess_interval <- function(train_dat, target_dat) {
 
 
 #overall function ####
-compare_oos <- function(K=10, n_mean=200, n_sd=0, n_target=100, eps_study_m=0.05, eps_study_tau=0.05, 
+compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05, eps_study_tau=0.05, 
                         eps_study_age=0.05, distribution="same", target_dist="same") {
   
   
