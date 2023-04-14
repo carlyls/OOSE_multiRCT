@@ -49,7 +49,8 @@ sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_ag
 
 #main function
 gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05, eps_study_tau=0.05, 
-                     eps_study_age=0.05, distribution="same", target_dist="same") {
+                     eps_study_age=0.05, distribution="same", target_dist="same",
+                     covars_fix="age", covars_rand="age") {
   
   #training data
   train_dat <- data.frame()
@@ -100,16 +101,20 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05, e
            eps_tau = rnorm(n=n_target, mean=0, sd=eps_study_tau),
            eps_age = rnorm(n=n_target, mean=0, sd=eps_study_age))
   
-  #standardize age and madrs
+  #standardize variables
+  
+  ### HERE ADD THE COVARS_FIX AND COVARS_RAND
   #add m and tau
   train_dat <- train_dat %>% 
     mutate(age = (age - mean(age))/sd(age),
            madrs = (madrs - mean(madrs))/sd(madrs),
+           weight = (weight - mean(weight))/sd(weight),
            m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
            tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
   target_dat <- target_dat %>% 
     mutate(age = (age - mean(age))/sd(age),
            madrs = (madrs - mean(madrs))/sd(madrs),
+           weight = (weight - mean(weight))/sd(weight),
            m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
            tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
   

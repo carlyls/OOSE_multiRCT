@@ -112,16 +112,10 @@ glht_ci <- function(df, mod) {
 
 #prediction interval by bootstrap ####
 #create intervals from bootstrap
-sample_cate <- function(x, boot_fix, boot_rand, rand_int=T) {
+sample_cate <- function(fix, rand, boot_fix, boot_rand) {
   
   #get cate|x according to each coefficient
-  if (rand_int == T) {
-    cates <- (boot_fix$W + boot_rand$W) + 
-      (boot_fix$W.age + boot_rand$W.age)*x
-  } else {
-    cates <- (boot_fix$W + boot_rand$W) + 
-      (boot_fix$W.age)*x
-  }
+  cates <- boot_fix %*% t(fix) + boot_rand %*% t(rand)
   
   #calculate interval over all iterations
   mean <- mean(cates)
@@ -133,20 +127,26 @@ sample_cate <- function(x, boot_fix, boot_rand, rand_int=T) {
 }
 
 #bootstrap and add intervals to data
-boot_pi <- function(df, mod, rand_int=T) {
+boot_pi <- function(df, mod, covars_fix, covars_rand) {
   
   #get var-covar of fixed and random effects from model
-  res <- matrix_var(mod, rand_int) 
+  res <- matrix_var(mod) 
   
   #randomly sample fixed and random coefficients
-  boot_fix <- mvrnorm(n=1000, mu=c(res$beta), Sigma=res$var_beta) %>%
-    data.frame()
-  boot_rand <- mvrnorm(n=1000, mu=rep(0, nrow(res$var_rand)), Sigma=res$var_rand) %>%
-    data.frame() #assume ranefs have mean 0
+  boot_fix <- mvrnorm(n=1000, mu=c(res$beta), Sigma=res$var_beta)
+  boot_rand <- mvrnorm(n=1000, mu=rep(0, 1+length(covars_rand)), Sigma=res$var_rand) #assume ranefs have mean 0
+  
+  fix <- dplyr::select(df, W, all_of(covars_fix)) %>%
+    mutate(W=1)
+  rand <- dplyr::select(df, W, all_of(covars_rand)) %>%
+    mutate(W=1)
   
   #apply coefficients to estimate cate for all ages
-  intervals <- map_dfr(.x=df$age, .f=sample_cate,
-                       boot_fix=boot_fix, boot_rand=boot_rand, rand_int=rand_int)
+  intervals <- c()
+  for (i in 1:nrow(fix)) {
+    intervals <- bind_rows(intervals, sample_cate(fix[i,], rand[i,], boot_fix, boot_rand))
+  }
+
   df <- df %>%
     bind_cols(intervals)
   
@@ -183,26 +183,33 @@ assess_interval <- function(train_dat, target_dat) {
 
 #overall function ####
 compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05, eps_study_tau=0.05, 
-                        eps_study_age=0.05, distribution="same", target_dist="same") {
+                        eps_study_age=0.05, distribution="same", target_dist="same",
+                        covars_fix="age", covars_rand="age") {
   
   
   ## Simulate training and target (OOS) data
   sim_dat <- gen_mdd(K, n_mean, n_sd, n_target, eps_study_m, eps_study_tau, 
-                     eps_study_age, distribution, target_dist)
+                     eps_study_age, distribution, target_dist, covars_fix, covars_rand)
   train_dat <- sim_dat[["train_dat"]]
   target_dat <- sim_dat[["target_dat"]]
 
   
   ## Fit mixed effects models
   #correct
-  mod <- lmer(Y ~  madrs + sex + W*age +
-                  (W + W:age | S), data=train_dat,
+  formula <- as.formula(paste0("Y ~ madrs + sex + ", 
+                               paste("W", covars_fix, sep="*", collapse=" + "),
+                               " + (W + ",
+                               paste("W", covars_rand, sep=":", collapse=" + "),
+                               " | S)"))
+  mod <- lmer(formula, data=train_dat,
               control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=10000)))
   sum <- summary(mod)
   
   #incorrect
-  mod_wrong <- lmer(Y ~  madrs + sex + W*age +
-                (W | S), data=train_dat,
+  formula_wrong <- as.formula(paste0("Y ~ madrs + sex + ", 
+                               paste("W", covars_fix, sep="*", collapse=" + "),
+                               " + (W | S)"))
+  mod_wrong <- lmer(formula_wrong, data=train_dat,
               control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=10000)))
   sum_wrong <- summary(mod_wrong)
   
@@ -219,23 +226,23 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05
   glht_res_wrong <- assess_interval(glht_train_wrong, glht_target_wrong)
     
   #manual PI
-  manual_train <- manual_pi(train_dat, mod, K, rand_int=T)
-  manual_target <- manual_pi(target_dat, mod, K, rand_int=T)
+  manual_train <- manual_pi(train_dat, mod, K, covars_fix, covars_rand)
+  manual_target <- manual_pi(target_dat, mod, K, covars_fix, covars_rand)
   manual_res <- assess_interval(manual_train, manual_target)
   
   #manual PI - incorrectly specified
-  manual_train_wrong <- manual_pi(train_dat, mod_wrong, K, rand_int=F)
-  manual_target_wrong <- manual_pi(target_dat, mod_wrong, K, rand_int=F)
+  manual_train_wrong <- manual_pi(train_dat, mod_wrong, K, covars_fix, c())
+  manual_target_wrong <- manual_pi(target_dat, mod_wrong, K, covars_fix, c())
   manual_res_wrong <- assess_interval(manual_train_wrong, manual_target_wrong)
 
   #bootstrap PI
-  boot_train <- boot_pi(train_dat, mod, rand_int=T)
-  boot_target <- boot_pi(target_dat, mod, rand_int=T)
+  boot_train <- boot_pi(train_dat, mod, covars_fix, covars_rand)
+  boot_target <- boot_pi(target_dat, mod, covars_fix, covars_rand)
   boot_res <- assess_interval(boot_train, boot_target)
   
   #bootstrap PI - incorrectly specified
-  boot_train_wrong <- boot_pi(train_dat, mod_wrong, rand_int=F)
-  boot_target_wrong <- boot_pi(target_dat, mod_wrong, rand_int=F)
+  boot_train_wrong <- boot_pi(train_dat, mod_wrong, covars_fix, c())
+  boot_target_wrong <- boot_pi(target_dat, mod_wrong, covars_fix, c())
   boot_res_wrong <- assess_interval(boot_train_wrong, boot_target_wrong)
   
   
@@ -243,7 +250,8 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05
   #data frame of parameters
   params <- data.frame(K=K, n_mean=n_mean, n_sd=n_sd, n_target=n_target, eps_study_m=eps_study_m, 
                        eps_study_tau=eps_study_tau, eps_study_age=eps_study_age,
-                       distribution=distribution, target_dist=target_dist)
+                       distribution=distribution, target_dist=target_dist,
+                       covars_fix=covars_fix, covars_rand=covars_rand)
   
   #data frame of results
   all_res <- cbind(glht_res, glht_res_wrong, manual_res, 
