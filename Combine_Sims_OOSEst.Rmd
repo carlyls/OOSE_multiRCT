@@ -37,7 +37,7 @@ saveRDS(all, "all_results_12Apr2023.RDS")
 ```
 
 ```{r, message=F, warning=F}
-all <- readRDS("all_results_12Apr2023.RDS")
+all <- readRDS("Data/all_results_12Apr2023.RDS")
 
 mean_sd <- function(x) {
   return(paste(mean(x), sd(x), sep=" "))

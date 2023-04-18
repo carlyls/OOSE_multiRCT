@@ -10,7 +10,7 @@ library(MASS)
 #library(merTools)
 
 #interior function
-sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_age, distribution) {
+sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_inter, distribution) {
   
   #define mu based on distribution input
   if (distribution == "same") {
@@ -32,25 +32,32 @@ sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_ag
       
     }
   
+  #define random slopes for moderators
+  eps_inter <- matrix(nrow=n, ncol=length(covars_rand))
+  colnames(eps_inter) <- paste0("eps_",covars_rand)
+  for (i in 1:length(covars_rand)) {
+    eps_inter[,i] <- rnorm(n=1, mean=0, sd=eps_study_inter[i])
+  }
+  
   #simulate data
   dat <- MASS::mvrnorm(n=n, mu=mu, Sigma=Sigma) %>%
     as.data.frame() %>%
-    mutate(sex = ifelse(sex > 1-0.6784, 1, 0),
+    mutate(S = k,
+           W = rbinom(n=n, size=1, prob=.5),
+           sex = ifelse(sex > 1-0.6784, 1, 0),
            smstat = ifelse(smstat > 1-0.3043, 1, 0),
            eps = rnorm(n=n, mean=0, sd=.05),
-           W = rbinom(n=n, size=1, prob=.5),
            eps_m = rnorm(n=1, mean=0, sd=eps_study_m),
-           eps_tau = rnorm(n=1, mean=0, sd=eps_study_tau),
-           eps_age = rnorm(n=1, mean=0, sd=eps_study_age),
-           S = k)
+           eps_tau = rnorm(n=1, mean=0, sd=eps_study_tau)) %>%
+    bind_cols(eps_inter)
   
   return(dat)
 }
 
 #main function
-gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05, eps_study_tau=0.05, 
-                     eps_study_age=0.05, distribution="same", target_dist="same",
-                     covars_fix="age", covars_rand="age") {
+gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", covars_rand="age",
+                     eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05,
+                     distribution="same", target_dist="same") {
   
   #training data
   train_dat <- data.frame()
@@ -68,7 +75,7 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05, e
     n <- n_study[k]
     
     #sample
-    dat <- sample_dist(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_age, distribution)
+    dat <- sample_dist(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_inter, distribution)
     train_dat <- bind_rows(train_dat, dat)
     
   }
@@ -76,13 +83,13 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05, e
   #target data
   if (target_dist == "same") {
     target_dat <- train_dat[sample(nrow(train_dat), n_target),] %>%
-      dplyr::select(-S, -eps_m, -eps_tau, -eps_age)
+      dplyr::select(-S, -contains("eps_"))
     
   } else if (target_dist == "upweight") {
     train_weight <- train_dat %>%
       mutate(study_weight = ifelse(S %in% c(3, 5), 3, 1))
     target_dat <- train_weight[sample(nrow(train_weight), n_target, prob=train_weight$study_weight),] %>%
-      dplyr::select(-study_weight, -S, -eps_m, -eps_tau, -eps_age)
+      dplyr::select(-study_weight, -S, -contains("eps_"))
     
   } else if (target_dist == "different") {
     target_mean <- c(age=30, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=25)
@@ -95,28 +102,44 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05, e
     
   }
   
+  #define random slopes for moderators in target sample
+  eps_inter_target <- matrix(nrow=n_target, ncol=length(covars_rand))
+  colnames(eps_inter_target) <- paste0("eps_",covars_rand)
+  for (i in 1:length(covars_rand)) {
+    eps_inter_target[,i] <- rnorm(n=n_target, mean=0, sd=eps_study_inter[i])
+  }
+  
   #add error terms to target sample
   target_dat <- target_dat %>%
     mutate(eps_m = rnorm(n=n_target, mean=0, sd=eps_study_m),
-           eps_tau = rnorm(n=n_target, mean=0, sd=eps_study_tau),
-           eps_age = rnorm(n=n_target, mean=0, sd=eps_study_age))
+           eps_tau = rnorm(n=n_target, mean=0, sd=eps_study_tau)) %>%
+    bind_cols(eps_inter_target)
   
   #standardize variables
-  
-  ### HERE ADD THE COVARS_FIX AND COVARS_RAND
   #add m and tau
   train_dat <- train_dat %>% 
     mutate(age = (age - mean(age))/sd(age),
            madrs = (madrs - mean(madrs))/sd(madrs),
-           weight = (weight - mean(weight))/sd(weight),
-           m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
-           tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
+           weight = (weight - mean(weight))/sd(weight))
   target_dat <- target_dat %>% 
     mutate(age = (age - mean(age))/sd(age),
            madrs = (madrs - mean(madrs))/sd(madrs),
-           weight = (weight - mean(weight))/sd(weight),
-           m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
-           tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
+           weight = (weight - mean(weight))/sd(weight))
+  
+  if (length(covars_fix) == 1 & length(covars_rand) == 1) {
+    train_dat <- train_dat %>% 
+      mutate(m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
+             tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
+    target_dat <- target_dat %>% 
+      mutate(m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
+             tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
+  } else if (covars_fix == c("age", "madrs") & covars_rand == c("age", "madrs")) {
+    ## FIGURE THIS OUT
+  } else if (covars_fix == c("age", "sex") & covars_rand == c("age", "sex")) {
+    ## FIGURE THIS OUT
+  } else if (covars_fix == c("age", "sex") & covars_rand == c("age")) {
+    ## FIGURE THIS OUT
+  }
   
   #outcome Y
   train_dat <- train_dat %>%

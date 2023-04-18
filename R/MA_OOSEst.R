@@ -196,8 +196,8 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05
   
   ## Fit mixed effects models
   #correct
-  formula <- as.formula(paste0("Y ~ madrs + sex + ", 
-                               paste("W", covars_fix, sep="*", collapse=" + "),
+  formula <- as.formula(paste0("Y ~ madrs + sex + age + W + ", 
+                               paste("W", covars_fix, sep=":", collapse=" + "),
                                " + (W + ",
                                paste("W", covars_rand, sep=":", collapse=" + "),
                                " | S)"))
@@ -206,8 +206,8 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05
   sum <- summary(mod)
   
   #incorrect
-  formula_wrong <- as.formula(paste0("Y ~ madrs + sex + ", 
-                               paste("W", covars_fix, sep="*", collapse=" + "),
+  formula_wrong <- as.formula(paste0("Y ~ madrs + sex + age + W + ", 
+                               paste("W", covars_fix, sep=":", collapse=" + "),
                                " + (W | S)"))
   mod_wrong <- lmer(formula_wrong, data=train_dat,
               control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=10000)))
