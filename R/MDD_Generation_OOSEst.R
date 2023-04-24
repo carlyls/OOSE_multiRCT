@@ -6,8 +6,6 @@ library(rsample)
 library(lme4)
 library(multcomp)
 library(MASS)
-#library(pimeta)
-#library(merTools)
 
 #interior function
 sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_inter, distribution) {

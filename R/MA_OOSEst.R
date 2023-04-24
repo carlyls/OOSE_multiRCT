@@ -5,8 +5,6 @@ library(lme4)
 library(rsample)
 library(multcomp)
 library(MASS)
-#library(pimeta)
-#library(merTools)
 
 source("R/MDD_Generation_OOSEst.R")
 
@@ -182,9 +180,9 @@ assess_interval <- function(train_dat, target_dat) {
 
 
 #overall function ####
-compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, eps_study_m=0.05, eps_study_tau=0.05, 
-                        eps_study_inter=0.05, distribution="same", target_dist="same",
-                        covars_fix="age", covars_rand="age") {
+compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", covars_rand="age",
+                        eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05, 
+                        distribution="same", target_dist="same") {
   
   
   ## Simulate training and target (OOS) data
