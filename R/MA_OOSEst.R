@@ -84,6 +84,7 @@ manual_pi <- function(df, mod, K, covars_fix, covars_rand) {
 
 
 #confidence interval by glht ####
+## still needs to be updated to account for other moderators ##
 #get ci based on x=age (as a character)
 age_ci <- function(x, mod) {
   
@@ -215,14 +216,14 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   
   ## Calculate mean and CIs for individuals and assess accuracy
   #confidence interval
-  glht_train <- glht_ci(train_dat, mod)
-  glht_target <- glht_ci(target_dat, mod)
-  glht_res <- assess_interval(glht_train, glht_target)
+  # glht_train <- glht_ci(train_dat, mod)
+  # glht_target <- glht_ci(target_dat, mod)
+  # glht_res <- assess_interval(glht_train, glht_target)
   
-  #confidence interval - incorrectly specified
-  glht_train_wrong <- glht_ci(train_dat, mod_wrong)
-  glht_target_wrong <- glht_ci(target_dat, mod_wrong)
-  glht_res_wrong <- assess_interval(glht_train_wrong, glht_target_wrong)
+  # #confidence interval - incorrectly specified
+  # glht_train_wrong <- glht_ci(train_dat, mod_wrong)
+  # glht_target_wrong <- glht_ci(target_dat, mod_wrong)
+  # glht_res_wrong <- assess_interval(glht_train_wrong, glht_target_wrong)
     
   #manual PI
   manual_train <- manual_pi(train_dat, mod, K, covars_fix, covars_rand)
@@ -247,14 +248,15 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   
   ## Save results
   #data frame of parameters
-  params <- data.frame(K=K, n_mean=n_mean, n_sd=n_sd, n_target=n_target, eps_study_m=eps_study_m, 
-                       eps_study_tau=eps_study_tau, eps_study_age=eps_study_age,
-                       distribution=distribution, target_dist=target_dist,
-                       covars_fix=covars_fix, covars_rand=covars_rand)
+  params <- data.frame(K=K, n_mean=n_mean, n_sd=n_sd, n_target=n_target, 
+                       covars_fix=paste(covars_fix, collapse = ", "), 
+                       covars_rand=paste(covars_rand, collapse = ", "),
+                       eps_study_m=eps_study_m, eps_study_tau=eps_study_tau, 
+                       eps_study_inter=paste(eps_study_inter, collapse = ", "),
+                       distribution=distribution, target_dist=target_dist)
   
   #data frame of results
-  all_res <- cbind(glht_res, glht_res_wrong, manual_res, 
-               manual_res_wrong, boot_res, boot_res_wrong) %>%
+  all_res <- cbind(manual_res, manual_res_wrong, boot_res, boot_res_wrong) %>%
     data.frame() %>%
     rownames_to_column("Metric") %>%
     cbind(params)
