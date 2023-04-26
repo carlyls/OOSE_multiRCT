@@ -38,23 +38,20 @@ sum <- summary(mod)
 #          madrs = 0,
 #          sex = 0,
 #          age = 0)
-# 
-# p <- predict(mod, X)
 
 
-covars_fix <- c("age")
-covars_rand <- c("age")
-formula <- as.formula(paste0("Y ~ madrs + sex + ", 
-                             paste("W", covars_fix, sep="*", collapse=" + "),
-                             " + (W + ",
-                             paste("W", covars_rand, sep=":", collapse=" + "),
-                             " | S)"))
-mod <- lmer(formula, data=train_dat,
-            control=lmerControl(optimizer="bobyqa", optCtrl=list(maxfun=10000)))
-sum <- summary(mod)
 
 
-#get variance components of model
+## Try var(u-hat) options
+
+v_uhat <- attr(ranef(mod, condVar = TRUE)[[1]], "postVar")
+var_uhat_train <- list()
+for (i in 1:K) {
+  var_uhat_train[[i]] <- v_uhat[,,i][2:ncol(v_uhat[,,i]),2:ncol(v_uhat[,,i])]
+}
+var_uhat <- do.call("bdiag", var_uhat_train) %>% as.matrix()
+
+
 matrix_var <- function(mod) {
   
   #calculate variances
@@ -70,8 +67,9 @@ matrix_var <- function(mod) {
   u <- ranef(mod)$S[grep("W", colnames(ranef(mod)$S))] %>% t() %>% matrix()
   var_rand <- rc[grep("W", rownames(rc)),
                  grep("W", colnames(rc))]
+  v_uhat <- attr(ranef(mod, condVar = TRUE)[[1]], "postVar")
   
-  return(list(beta=beta, var_beta=var_beta, u=u, var_rand=var_rand))
+  return(list(beta=beta, var_beta=var_beta, u=u, var_rand=var_rand, v_uhat=v_uhat))
 }
 
 #add pis to dataset
@@ -83,6 +81,7 @@ manual_pi <- function(df, mod, K, covars_fix, covars_rand) {
   var_beta <- res$var_beta
   u <- res$u
   var_rand <- res$var_rand
+  v_uhat <- res$v_uhat
   
   #calculate theta-hats
   X <- df %>%
@@ -98,6 +97,12 @@ manual_pi <- function(df, mod, K, covars_fix, covars_rand) {
     Zlist <- list()
     var_rand_train <- rep(list(var_rand), K)
     var_rand <- do.call("bdiag", var_rand_train) %>% as.matrix()
+    
+    var_uhat_train <- list()
+    for (i in 1:K) {
+      var_uhat_train[[i]] <- v_uhat[,,i][2:ncol(v_uhat[,,i]),2:ncol(v_uhat[,,i])]
+    }
+    var_uhat <- do.call("bdiag", var_uhat_train) %>% as.matrix()
     
     for (s in 1:K) {
       Z_S <- Z[df$S==s,]
@@ -115,14 +120,22 @@ manual_pi <- function(df, mod, K, covars_fix, covars_rand) {
   vcov_theta <- X %*% var_beta %*% t(X) + Z %*% var_rand %*% t(Z)
   var_theta <- diag(vcov_theta) #Var(theta-hat)
   
+  vcov_uhat <- X %*% var_beta %*% t(X) + Z %*% var_uhat %*% t(Z)
+  var_theta_uhat <- diag(vcov_uhat)
+  
   #prediction interval
   pred_lower <- mean_theta + qt(.025, K-2)*sqrt(var_theta)
   pred_upper <- mean_theta - qt(.025, K-2)*sqrt(var_theta)
   
+  pred_l2 <- mean_theta + qt(.025, K-2)*sqrt(var_theta_uhat)
+  pred_u2 <- mean_theta - qt(.025, K-2)*sqrt(var_theta_uhat)
+  
   df <- df %>%
     mutate(lower = pred_lower,
+           l2 = pred_l2,
            mean = mean_theta,
-           upper = pred_upper)
+           upper = pred_upper,
+           u2 = pred_u2)
   
   return(df)
 }

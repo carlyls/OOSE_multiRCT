@@ -25,19 +25,21 @@ matrix_var <- function(mod) {
   u <- ranef(mod)$S[grep("W", colnames(ranef(mod)$S))] %>% t() %>% matrix()
   var_rand <- rc[grep("W", rownames(rc)),
                  grep("W", colnames(rc))]
+  v_uhat <- attr(ranef(mod, condVar = TRUE)[[1]], "postVar")
   
-  return(list(beta=beta, var_beta=var_beta, u=u, var_rand=var_rand))
+  return(list(beta=beta, var_beta=var_beta, u=u, var_rand=var_rand, v_uhat=v_uhat))
 }
 
 #add pis to dataset
-manual_pi <- function(df, mod, K, covars_fix, covars_rand) {
+manual_pi_train <- function(df, res, K, covars_fix, covars_rand) {
   
   #get variances
-  res <- matrix_var(mod)
+  #res <- matrix_var(mod)
   beta <- res$beta
   var_beta <- res$var_beta
   u <- res$u
-  var_rand <- res$var_rand
+  #var_rand <- res$var_rand
+  v_uhat <- res$v_uhat
   
   #calculate theta-hats
   X <- df %>%
@@ -49,23 +51,57 @@ manual_pi <- function(df, mod, K, covars_fix, covars_rand) {
     mutate(W = 1) %>%
     as.matrix()
   
-  if ("S" %in% names(df)) { #training data structure is different
-    Zlist <- list()
-    var_rand_train <- rep(list(var_rand), K)
-    var_rand <- do.call("bdiag", var_rand_train) %>% as.matrix()
-    
-    for (s in 1:K) {
-      Z_S <- Z[df$S==s,]
-      Zlist[[s]] <- Z_S
-    }
-    Z <- do.call("bdiag", Zlist) %>% as.matrix()
-    
-    mean_theta <- X %*% beta + Z %*% u %>% c()
-    
-  } else { #don't know u's for target data
-    
-    mean_theta <- X %*% beta %>% c() #theta-hat
+  Zlist <- list()
+  for (s in 1:K) {
+    Z_S <- Z[df$S==s,]
+    Zlist[[s]] <- Z_S
   }
+  Z <- do.call("bdiag", Zlist) %>% as.matrix()
+  
+  var_uhat_train <- list()
+  for (i in 1:K) {
+    var_uhat_train[[i]] <- v_uhat[,,i][2:ncol(v_uhat[,,i]),2:ncol(v_uhat[,,i])]
+  }
+  var_uhat <- do.call("bdiag", var_uhat_train) %>% as.matrix()
+
+  mean_theta <- X %*% beta + Z %*% u %>% c()
+  
+  vcov_theta <- X %*% var_beta %*% t(X) + Z %*% var_uhat %*% t(Z)
+  var_theta <- diag(vcov_theta) #Var(theta-hat)
+  
+  #prediction interval
+  pred_lower <- mean_theta + qt(.025, K-2)*sqrt(var_theta)
+  pred_upper <- mean_theta - qt(.025, K-2)*sqrt(var_theta)
+  
+  df <- df %>%
+    mutate(lower = pred_lower,
+           mean = mean_theta,
+           upper = pred_upper)
+  
+  return(df)
+}
+
+manual_pi_target <- function(df, res, K, covars_fix, covars_rand) {
+  
+  #get variances
+  #res <- matrix_var(mod)
+  beta <- res$beta
+  var_beta <- res$var_beta
+  u <- res$u
+  var_rand <- res$var_rand
+  #v_uhat <- res$v_uhat
+  
+  #calculate theta-hats
+  X <- df %>%
+    dplyr::select(W, all_of(covars_fix)) %>%
+    mutate(W = 1) %>%
+    as.matrix()
+  Z <- df %>%
+    dplyr::select(W, all_of(covars_rand)) %>%
+    mutate(W = 1) %>%
+    as.matrix()
+  
+  mean_theta <- X %*% beta %>% c() #theta-hat
   
   vcov_theta <- X %*% var_beta %*% t(X) + Z %*% var_rand %*% t(Z)
   var_theta <- diag(vcov_theta) #Var(theta-hat)
@@ -226,13 +262,15 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   # glht_res_wrong <- assess_interval(glht_train_wrong, glht_target_wrong)
     
   #manual PI
-  manual_train <- manual_pi(train_dat, mod, K, covars_fix, covars_rand)
-  manual_target <- manual_pi(target_dat, mod, K, covars_fix, covars_rand)
+  res <- matrix_var(res)
+  manual_train <- manual_pi_train(train_dat, res, K, covars_fix, covars_rand)
+  manual_target <- manual_pi_target(target_dat, res, K, covars_fix, covars_rand)
   manual_res <- assess_interval(manual_train, manual_target)
   
   #manual PI - incorrectly specified
-  manual_train_wrong <- manual_pi(train_dat, mod_wrong, K, covars_fix, c())
-  manual_target_wrong <- manual_pi(target_dat, mod_wrong, K, covars_fix, c())
+  res_wrong <- matrix_var(res_wrong)
+  manual_train_wrong <- manual_pi_train(train_dat, res_wrong, K, covars_fix, c())
+  manual_target_wrong <- manual_pi_target(target_dat, res_wrong, K, covars_fix, c())
   manual_res_wrong <- assess_interval(manual_train_wrong, manual_target_wrong)
 
   #bootstrap PI
