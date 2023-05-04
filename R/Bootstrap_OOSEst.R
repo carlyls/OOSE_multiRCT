@@ -4,11 +4,21 @@ library(tidyverse)
 library(rsample)
 library(grf)
 library(fastDummies)
-library(nnet)
 
-#source("Comparing_methods_functions.R")
-source("R/MDD_Generation_OOSEst.R")
 
+#### TRAINING DATA ####
+
+cf_ci <- function(df, tau_hat) {
+  df <- df %>%
+    mutate(mean = tau_hat$predictions,
+           sd = sqrt(tau_hat$variance.estimates),
+           lower = mean + qt(.025, df=nrow(train_dat)-1)*sd,
+           upper = mean + qt(.975, df=nrow(train_dat)-1)*sd)
+  return(df)
+}
+
+
+#### TARGET DATA ####
 
 #### OPTION 1: COMPLETELY RANDOM ####
 

@@ -1,5 +1,4 @@
-### Simulation Approach for OOS Estimation ###
-### Based on MDD Data ###
+### Simulation Approach for OOS Estimation: Based on MDD Data ###
 
 library(tidyverse)
 library(rsample)
