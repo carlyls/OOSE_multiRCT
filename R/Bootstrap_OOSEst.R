@@ -17,13 +17,18 @@ impute_rand <- function(N, target_dat, tau_forest) {
   #assign study
   new_dat <- target_dat %>%
     slice(rep(1:n(), each=N)) %>%
-    mutate(S = sample(1:K, nrow(target_dat)*N, replace = T)) %>%
+    mutate(S = sample(1:K, nrow(target_dat)*N, replace = T),
+           tau_hat = NA) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
   new_feat <- new_dat %>%
-    dplyr::select(-c(W, tau, Y))
+    dplyr::select(-c(W, tau, Y, tau_hat))
   
   #predict CATE
-  new_dat$tau_hat <- predict(tau_forest, newdata = new_feat)$predictions
+  target_pred <- predict(tau_forest, newdata = new_feat, estimate.variance = T)
+  for (i in 1:nrow(target_pred)) {
+    new_dat$tau_hat[i] <- rnorm(1, mean=target_pred$predictions[i],
+                                sd = sqrt(target_pred$variance.estimates[i]))
+  }
   
   #create confidence intervals
   cis <- new_dat %>%
@@ -33,13 +38,9 @@ impute_rand <- function(N, target_dat, tau_forest) {
     mutate(lower = mean + qt(.025, df=N-1)*sd,
            upper = mean + qt(.975, df=N-1)*sd)
   
-  #calculate accuracy
-  mse <- mean((cis$mean - cis$tau)^2)
-  ci_coverage <- sum(ifelse(cis$tau >= cis$lower & cis$tau <= cis$upper, 1, 0))/nrow(cis)
-  ci_length <- mean(cis$upper - cis$lower)
-  
-  return(list(mse=mse, ci_coverage=ci_coverage, ci_length=ci_length, cis=cis))
+  return(cis)
 }
+
 
 #### OPTION 2: STUDY MEMBERSHIP MODEL ####
 
@@ -62,13 +63,18 @@ impute_mem <- function(N, train_dat, target_dat, tau_forest) {
   #assign study
   new_mem <- target_dat %>%
     slice(rep(1:n(), each=N)) %>%
-    mutate(S = S_mem) %>%
+    mutate(S = S_mem,
+           tau_hat = NA) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
   new_feat <- new_mem %>%
-    dplyr::select(-c(W, tau, Y))
+    dplyr::select(-c(W, tau, Y, tau_hat))
   
   #predict CATE
-  new_mem$tau_hat <- predict(tau_forest, newdata = new_feat)$predictions
+  target_pred <- predict(tau_forest, newdata = new_feat, estimate.variance = T)
+  for (i in 1:nrow(target_pred)) {
+    new_mem$tau_hat[i] <- rnorm(1, mean=target_pred$predictions[i],
+                                sd = sqrt(target_pred$variance.estimates[i]))
+  }
   
   #create confidence intervals
   cis <- new_mem %>%
@@ -78,13 +84,9 @@ impute_mem <- function(N, train_dat, target_dat, tau_forest) {
     mutate(lower = mean + qt(.025, df=N-1)*sd,
            upper = mean + qt(.975, df=N-1)*sd)
   
-  #calculate accuracy
-  mse <- mean((cis$mean - cis$tau)^2)
-  ci_coverage <- sum(ifelse(cis$tau >= cis$lower & cis$tau <= cis$upper, 1, 0))/nrow(cis)
-  ci_length <- mean(cis$upper - cis$lower)
-  
-  return(list(mse=mse, ci_coverage=ci_coverage, ci_length=ci_length, cis=cis))
+  return(cis)
 }
+
 
 #### OPTION 3: WITHIN-FOREST ####
 
@@ -109,69 +111,6 @@ impute_default <- function(K, target_dat, tau_forest) {
     mutate(lower = mean + qt(.025, df=N-1)*sd,
            upper = mean + qt(.975, df=N-1)*sd)
   
-  #calculate accuracy
-  mse <- mean((cis$mean - cis$tau)^2)
-  ci_coverage <- sum(ifelse(cis$tau >= cis$lower & cis$tau <= cis$upper, 1, 0))/nrow(cis)
-  ci_length <- mean(cis$upper - cis$lower)
-  
-  return(list(mse=mse, ci_coverage=ci_coverage, ci_length=ci_length, cis=cis))
-  
-}
-
-#### OPTION 4: WITHIN-FOREST RANDOM SAMPLING ####
-
-
-#### OPTION 5: GRADE OF MEMBERSHIP MODEL ####
-
-
-
-##################################
-
-## FUNCTION
-
-compare_oos <- function(N=100, K=6, n_mean=200, n_sd=0, eps_study_m=0.05, 
-                        eps_study_tau=0.01, distribution="same", target_dist="same") {
-  
-  
-  ## Simulate training and target (OOS) data
-  sim_dat <- gen_mdd(K, n_mean, n_sd, eps_study_m, eps_study_tau, distribution, target_dist)
-  train_dat <- sim_dat[["train_dat"]]
-  target_dat <- sim_dat[["target_dat"]]
-  
-  covars <- c("sex", "smstat", "weight", "age", "madrs")
-  feat <- dplyr::select(train_dat, c(S, all_of(covars))) %>%
-    fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
-  tau_true <- train_dat$tau
-  
-  
-  ## Fit models (for now, causal forest with pooling with trial indicator)
-  tau_forest <- causal_forest(X=feat, Y=train_dat$Y, W=train_dat$W, 
-                              num.threads=3, honesty=F, num.trees=1000)
-  tau_hat <- predict(tau_forest, estimate.variance=T)
-  #mse for training data
-  train_mse <- mean((tau_hat$predictions - tau_true)^2)
-  #CI coverage for training data
-  sd <- sqrt(tau_hat$variance.estimates)
-  lower <- tau_hat$predictions + qt(.025, df=nrow(train_dat)-1)*sd
-  upper <- tau_hat$predictions + qt(.975, df=nrow(train_dat)-1)*sd
-  train_coverage <- sum(ifelse(tau_true >= lower & tau_true <= upper, 1, 0))/nrow(train_dat)
-  train_res <- c(train_mse=train_mse, train_coverage=train_coverage)
-  
-  
-  ## Calculate mean and CIs for each target individual according to each imputation method
-  #random
-  res_rand <- impute_rand(N, target_dat, tau_forest)
-  #study membership model
-  res_mem <- impute_mem(N, train_dat, target_dat, tau_forest)
-  #within-forest default
-  res_default <- impute_default(K, target_dat, tau_forest)
-  
-  
-  ## Save results
-  return(list(train_res=train_res, res_rand=res_rand, 
-              res_mem=res_mem, res_default=res_default,
-              N=N, K=K, n_mean=n_mean, n_sd=n_sd,
-              eps_study_m=eps_study_m, eps_study_tau=eps_study_tau, 
-              distribution=distribution, target_dist=target_dist))
+  return(cis)
 }
 
