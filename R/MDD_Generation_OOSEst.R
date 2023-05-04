@@ -6,6 +6,7 @@ library(rsample)
 library(lme4)
 library(multcomp)
 library(MASS)
+library(grf)
 
 #interior function
 sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_inter, distribution) {
@@ -54,7 +55,7 @@ sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_in
 
 #main function
 gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", covars_rand="age",
-                     eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05,
+                     lin=T, eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05,
                      distribution="same", target_dist="same") {
   
   #training data
@@ -125,33 +126,37 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
   
   #add m and tau
   if (length(covars_fix) == 1 & length(covars_rand) == 1) {
-    train_dat <- train_dat %>% 
-      mutate(m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
-             tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
-    target_dat <- target_dat %>% 
-      mutate(m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
-             tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
     
-  } else if (length(covars_fix) == 2 & length(covars_rand) == 2) {
-    
-    if (covars_fix[2] == "madrs") {
+    if (lin == T) {
       train_dat <- train_dat %>% 
-        mutate(m = (-17.29 + eps_m) - 0.20*age - 2.63*madrs - 0.14*sex,
-               tau = (2.506 + eps_tau) + (0.91 + eps_age)*age + (0.84 + eps_madrs)*madrs)
+        mutate(m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
+               tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
       target_dat <- target_dat %>% 
-        mutate(m = (-17.29 + eps_m) - 0.20*age - 2.63*madrs - 0.14*sex,
-               tau = (2.506 + eps_tau) + (0.91 + eps_age)*age + (0.84 + eps_madrs)*madrs)
+        mutate(m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
+               tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
       
-    } else if (covars_fix[2] == "sex") {
+    } else {
       train_dat <- train_dat %>% 
-        mutate(m = (-17.24 + eps_m) - 0.21*age - 2.03*madrs - 0.38*sex,
-               tau = (2.32 + eps_tau) + (0.88 + eps_age)*age + (0.36 + eps_sex)*sex)
+        mutate(m = (-17.40 + eps_m) - 0.13*age,
+               tau = )
       target_dat <- target_dat %>% 
-        mutate(m = (-17.24 + eps_m) - 0.21*age - 2.03*madrs - 0.38*sex,
-               tau = (2.32 + eps_tau) + (0.88 + eps_age)*age + (0.36 + eps_sex)*sex)
+        mutate(m = (-17.40 + eps_m) - 0.13*age,
+               tau = )
       
     }
+  } else if (length(covars_fix) == 2 & length(covars_rand) == 2) {
+    
+    train_dat <- train_dat %>% 
+      mutate(m = (-17.29 + eps_m) - 0.20*age - 2.63*madrs - 0.14*sex,
+             tau = (2.506 + eps_tau) + (0.91 + eps_age)*age + (0.84 + eps_madrs)*madrs)
+    target_dat <- target_dat %>% 
+      mutate(m = (-17.29 + eps_m) - 0.20*age - 2.63*madrs - 0.14*sex,
+             tau = (2.506 + eps_tau) + (0.91 + eps_age)*age + (0.84 + eps_madrs)*madrs)
+      
   } else if (length(covars_fix) == 2 & length(covars_rand) == 1) {
+    
+    #### FIX THIS TO BE AGE^2 ####
+    
     train_dat <- train_dat %>% 
       mutate(m = (-17.18 + eps_m) - 0.12*age - 2.05*madrs - 0.42*sex,
              tau = (2.20 + eps_tau) + (0.81 + eps_age)*age + (0.44)*sex)
