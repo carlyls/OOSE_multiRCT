@@ -124,6 +124,35 @@ all_long %>%
   xlab("Variability of Trt and Trt*Age Coefficients") +
   ylab("CI Coverage Percent in Target Sample") +
   ggtitle("Different Target Distribution")
+
+#same and different target dist on one plot
+all_long %>%
+  filter(Metric == "target_coverage",
+         eps_study_m == 0.05,
+         model != "GLHT") %>%
+  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
+  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
+  facet_grid(distribution~target_dist) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab("Variability of Trt and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent in Target Sample") +
+  ggtitle("Low Variability of Intercept") +
+  labs(color="Meta-Analysis", shape="Method")
+
+all_long %>%
+  filter(Metric == "target_coverage",
+         eps_study_m == 1,
+         model != "GLHT") %>%
+  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
+  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
+  facet_grid(distribution~target_dist) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab("Variability of Trt and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent in Target Sample") +
+  ggtitle("High Variability of Intercept")  +
+  labs(color="Meta-Analysis", shape="Method")
 ```
 
 ```{r}
