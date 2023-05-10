@@ -6,6 +6,7 @@ library(rsample)
 library(multcomp)
 library(MASS)
 library(grf)
+library(nnet)
 
 source("R/MDD_Generation_OOSEst.R")
 source("R/MA_OOSEst.R")
@@ -54,7 +55,14 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   
   
   ## Mixed effects model: Correct
-  formula <- as.formula(paste0("Y ~ madrs + sex + age + W + ", 
+  #change for scenario with age^2
+  if ("age2" %in% covars_fix) { 
+    main_eff <- "Y ~ madrs + sex + age2 + W + "
+  } else { 
+    main_eff <- "Y ~ madrs + sex + age + W + "
+  }
+  
+  formula <- as.formula(paste0(main_eff, 
                                paste("W", covars_fix, sep=":", collapse=" + "),
                                " + (W + ",
                                paste("W", covars_rand, sep=":", collapse=" + "),
@@ -71,7 +79,7 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   
   
   ## Mixed effects model: Incorrect
-  formula_wrong <- as.formula(paste0("Y ~ madrs + sex + age + W + ", 
+  formula_wrong <- as.formula(paste0(main_eff, 
                                      paste("W", covars_fix, sep=":", collapse=" + "),
                                      " + (W | S)"))
   mod_wrong <- lmer(formula_wrong, data=train_dat,
@@ -86,7 +94,12 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   
   
   ## Causal Forest
-  covars <- c("sex", "smstat", "weight", "age", "madrs")
+  if ("age2" %in% covars_fix) { 
+    covars <- c("sex", "smstat", "weight", "age2", "madrs")
+  } else { 
+    covars <- c("sex", "smstat", "weight", "age", "madrs")
+  }
+  
   feat <- dplyr::select(train_dat, c(S, all_of(covars))) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
   
@@ -99,11 +112,11 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   
   #causal forest CI - target
   #random
-  rand_target <- impute_rand(1000, target_dat, tau_forest)
+  rand_target <- impute_rand(1000, target_dat, tau_forest, covars)
   #study membership model
-  mem_target <- impute_mem(1000, train_dat, target_dat, tau_forest)
+  mem_target <- impute_mem(1000, train_dat, target_dat, tau_forest, covars)
   #within-forest default
-  default_target <- impute_default(K, target_dat, tau_forest)
+  default_target <- impute_default(K, target_dat, tau_forest, covars)
   
   #calculate mean and CIs for individuals and assess accuracy
   rand_res <- assess_interval(cf_train, rand_target)

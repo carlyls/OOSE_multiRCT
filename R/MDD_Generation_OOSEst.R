@@ -6,9 +6,11 @@ library(lme4)
 library(multcomp)
 library(MASS)
 library(grf)
+library(nnet)
 
 #interior function
-sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_inter, distribution) {
+sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, 
+                        eps_study_inter, covars_rand, distribution) {
   
   #define mu based on distribution input
   if (distribution == "same") {
@@ -44,6 +46,7 @@ sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_in
            W = rbinom(n=n, size=1, prob=.5),
            sex = ifelse(sex > 1-0.6784, 1, 0),
            smstat = ifelse(smstat > 1-0.3043, 1, 0),
+           age2 = age^2,
            eps = rnorm(n=n, mean=0, sd=.05),
            eps_m = rnorm(n=1, mean=0, sd=eps_study_m),
            eps_tau = rnorm(n=1, mean=0, sd=eps_study_tau)) %>%
@@ -73,7 +76,8 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
     n <- n_study[k]
     
     #sample
-    dat <- sample_dist(K, k, n, Sigma, eps_study_m, eps_study_tau, eps_study_inter, distribution)
+    dat <- sample_dist(K, k, n, Sigma, eps_study_m, eps_study_tau, 
+                       eps_study_inter, covars_rand, distribution)
     train_dat <- bind_rows(train_dat, dat)
     
   }
@@ -117,16 +121,18 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
   train_dat <- train_dat %>% 
     mutate(age = (age - mean(age))/sd(age),
            madrs = (madrs - mean(madrs))/sd(madrs),
-           weight = (weight - mean(weight))/sd(weight))
+           weight = (weight - mean(weight))/sd(weight),
+           age2 = (age2 - mean(age2))/sd(age2))
   target_dat <- target_dat %>% 
     mutate(age = (age - mean(age))/sd(age),
            madrs = (madrs - mean(madrs))/sd(madrs),
-           weight = (weight - mean(weight))/sd(weight))
+           weight = (weight - mean(weight))/sd(weight),
+           age2 = (age2 - mean(age2))/sd(age2))
   
   #add m and tau
-  if (length(covars_fix) == 1 & length(covars_rand) == 1) {
+  if (length(covars_fix) == 1 & length(covars_rand) == 1) { #age only moderators
     
-    if (lin == T) {
+    if (lin == T) { #linear cate
       train_dat <- train_dat %>% 
         mutate(m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
                tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
@@ -134,16 +140,16 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
         mutate(m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
                tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
       
-    } else {
+    } else { #nonlinear cate
       train_dat <- train_dat %>% 
-        mutate(m = (-17.40 + eps_m) - 0.13*age,
-               tau = )
+        mutate(m = (-17.52 + eps_m) - 0.08*age,
+               tau = (2.2 + eps_tau)*exp((.35 + eps_age)*age))
       target_dat <- target_dat %>% 
-        mutate(m = (-17.40 + eps_m) - 0.13*age,
-               tau = )
+        mutate(m = (-17.52 + eps_m) - 0.08*age,
+               tau = (2.2 + eps_tau)*exp((.35 + eps_age)*age))
       
     }
-  } else if (length(covars_fix) == 2 & length(covars_rand) == 2) {
+  } else if (length(covars_fix) == 2 & length(covars_rand) == 2) { #age and madrs moderators
     
     train_dat <- train_dat %>% 
       mutate(m = (-17.29 + eps_m) - 0.20*age - 2.63*madrs - 0.14*sex,
@@ -152,16 +158,14 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
       mutate(m = (-17.29 + eps_m) - 0.20*age - 2.63*madrs - 0.14*sex,
              tau = (2.506 + eps_tau) + (0.91 + eps_age)*age + (0.84 + eps_madrs)*madrs)
       
-  } else if (length(covars_fix) == 2 & length(covars_rand) == 1) {
-    
-    #### FIX THIS TO BE AGE^2 ####
+  } else if (length(covars_fix) == 2 & length(covars_rand) == 1) { #age^2 and sex (fixed) moderators
     
     train_dat <- train_dat %>% 
-      mutate(m = (-17.18 + eps_m) - 0.12*age - 2.05*madrs - 0.42*sex,
-             tau = (2.20 + eps_tau) + (0.81 + eps_age)*age + (0.44)*sex)
+      mutate(m = (-17.16 + eps_m) + 0.16*age2 - 2.07*madrs - 0.43*sex,
+             tau = (2.14 + eps_tau) + (-0.16 + eps_age2)*age2 + (0.49)*sex)
     target_dat <- target_dat %>% 
-      mutate(m = (-17.18 + eps_m) - 0.12*age - 2.05*madrs - 0.42*sex,
-             tau = (2.20 + eps_tau) + (0.81 + eps_age)*age + (0.44)*sex)
+      mutate(m = (-17.16 + eps_m) + 0.16*age2 - 2.07*madrs - 0.43*sex,
+             tau = (2.14 + eps_tau) + (-0.16 + eps_age2)*age2 + (0.49)*sex)
     
   } 
   
@@ -169,11 +173,11 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
   train_dat <- train_dat %>%
     mutate(Y = m + W*tau + eps,
            S = factor(S)) %>%
-    dplyr::select(S, W, sex, smstat, weight, age, madrs, Y, tau)
+    dplyr::select(S, W, sex, smstat, weight, age, age2, madrs, Y, tau)
   
   target_dat <- target_dat %>%
     mutate(Y = m + W*tau + eps) %>%
-    dplyr::select(W, sex, smstat, weight, age, madrs, Y, tau)
+    dplyr::select(W, sex, smstat, weight, age, age2, madrs, Y, tau)
   
   return(list(train_dat=train_dat, target_dat=target_dat))
 }

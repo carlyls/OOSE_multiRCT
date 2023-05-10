@@ -139,3 +139,14 @@ manual_pi <- function(df, mod, K, covars_fix, covars_rand) {
   
   return(df)
 }
+
+
+## Figure out non-linear eqn
+
+new_tau <- function(train_dat, out, num, d1, d2) {
+  tau_nl <- out*num/(d1 + exp(d2*train_dat$age))
+  hist(tau_nl)
+  return(c(mean=mean(tau_nl), var=var(tau_nl)))
+}
+
+og_tau <- c(mean=mean(train_dat$tau), var=var(train_dat$tau))
