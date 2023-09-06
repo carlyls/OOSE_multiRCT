@@ -49,7 +49,12 @@ impute_rand <- function(N, target_dat, tau_forest, covars) {
     mutate(lower = mean + qt(.025, df=N-1)*sd,
            upper = mean + qt(.975, df=N-1)*sd)
   
-  return(cis)
+  #reorder to match target data
+  cis_ord <- target_dat %>%
+    left_join(cis, by = c("sex","smstat","weight","age",
+                          "age2","madrs","tau"))
+  
+  return(cis_ord)
 }
 
 
