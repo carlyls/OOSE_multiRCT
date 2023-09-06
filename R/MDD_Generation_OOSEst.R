@@ -9,7 +9,7 @@ library(grf)
 library(nnet)
 
 #interior function
-sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau, 
+sample_dist <- function(k, n, Sigma, eps_study_m, eps_study_tau, 
                         eps_study_inter, covars_rand, distribution) {
   
   #define mu based on distribution input
@@ -27,9 +27,12 @@ sample_dist <- function(K, k, n, Sigma, eps_study_m, eps_study_tau,
       }
     
     } else if (distribution == "separate_age") {
-      ages <- seq(30, 55, length.out=K)
-      mu <- c(age=ages[k], sex=0.6784, smstat=0.3043, weight=79.0253, madrs=31.4088)
-      
+      if (k == 1) {
+        mu <- c(age=60, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=31.4088)
+      } else {
+        mu <- c(age=30, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=31.4088)
+      }
+  
     }
   
   #define random slopes for moderators
@@ -76,7 +79,7 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
     n <- n_study[k]
     
     #sample
-    dat <- sample_dist(K, k, n, Sigma, eps_study_m, eps_study_tau, 
+    dat <- sample_dist(k, n, Sigma, eps_study_m, eps_study_tau, 
                        eps_study_inter, covars_rand, distribution)
     train_dat <- bind_rows(train_dat, dat)
     

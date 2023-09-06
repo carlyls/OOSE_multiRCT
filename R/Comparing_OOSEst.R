@@ -156,9 +156,10 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
     mutate(manual_ipe = manual_target$tau - manual_target$mean,
            manual_wrong_ipe = manual_target_wrong$tau - manual_target_wrong$mean,
            cf_ipe = cf_target$tau - cf_target$mean,
-           cf_a_ipe = cf_a_target$tau, cf_a_target$mean)
+           cf_a_ipe = cf_target_a$tau - cf_target_a$mean)
   
-  return(all_res)
+  
+  return(list(all_res, ipe))
 }
 
 
