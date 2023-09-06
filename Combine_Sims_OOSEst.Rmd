@@ -1,7 +1,7 @@
 ---
 title: 'Estimating Confidence Intervals for CATE in Target Sample: Simulation Results'
 author: "Carly Lupton Brantner"
-date: '2023-04-07'
+date: '2023-09-05'
 output: html_document
 ---
 
@@ -17,7 +17,7 @@ library(tidyverse)
 
 ```{r, eval=F}
 #read in all files
-setwd("~/Desktop/Cluster/OOSEst/12Apr2023")
+setwd("~/Desktop/Cluster/OOSEst/30Aug2023")
 files <- list.files(pattern=".Rdata")
 
 all <- c()
@@ -33,35 +33,39 @@ length(unique(seeds)) == length(files) #making sure every iteration has a unique
 
 nrow(all) #to make sure every iteration ran
 setwd("~/Dropbox/Moderation/Out of Sample Prediction/Data")
-saveRDS(all, "all_results_12Apr2023.RDS")
+saveRDS(all, "all_results_30Aug2023.RDS")
 ```
 
 ```{r, message=F, warning=F}
-all <- readRDS("Data/all_results_12Apr2023.RDS")
+all <- readRDS("Data/all_results_30Aug2023.RDS")
 
 mean_sd <- function(x) {
   return(paste(mean(x), sd(x), sep=" "))
 }
 #average across iterations
 all_avg <- all %>%
-  group_by(Metric, K, n_mean, n_sd, n_target, eps_study_m,
-           eps_study_tau, eps_study_age, distribution, target_dist) %>%
-  summarise(across(glht_res:boot_res_wrong, ~ mean_sd(.x)),
+  group_by(Metric, K, n_mean, n_sd, n_target, covars_fix, covars_rand,
+           lin, eps_study_m, eps_study_tau, eps_study_inter,
+           distribution, target_dist) %>%
+  summarise(across(manual_res:default_a_res, ~ mean_sd(.x)),
             n_iter = n())
 summary(all_avg$n_iter) #check iterations
 
 #long format for plotting
 all_long <- all_avg %>%
-  pivot_longer(cols=glht_res:boot_res_wrong,
+  pivot_longer(cols=manual_res:default_a_res,
                names_to="Method",
                values_to="Value") %>%
   separate(Value, into=c("Mean", "SD"), sep=" ") %>%
   mutate_at(c("Mean", "SD"), as.numeric) %>%
-  mutate(eps = factor(paste(eps_study_tau, eps_study_age, sep="_")),
+  mutate(eps = factor(paste(eps_study_tau, eps_study_inter, sep="_")),
          eps_study_m = factor(eps_study_m),
-         spec = ifelse(grepl("wrong", Method)==T, "Incorrectly Specified", "Correctly Specified"),
-         model = ifelse(grepl("glht", Method)==T, "GLHT",
-                        ifelse(grepl("manual", Method)==T, "Manual", "Boot")))
+         spec = ifelse(grepl("manual", Method)==T, "MA", ifelse(
+                       grepl("_a_", Method)==T, "Adaptive", "Honest")),
+         model = case_when(grepl("manual", Method)==T ~ "Meta-Analysis",
+                           grepl("mem", Method)==T ~ "CF w/ Membership",
+                           grepl("rand", Method)==T ~ "CF Random",
+                           grepl("default", Method)==T ~ "CF Default"))
 ```
 
 ## Target CI Coverage
@@ -71,41 +75,12 @@ all_long <- all_avg %>%
 #same target dist
 all_long %>%
   filter(Metric == "target_coverage",
-         target_dist == "same") %>%
-  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
-  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
-  facet_grid(distribution~eps_study_m) +
-  scale_y_continuous(labels = scales::percent) +
-  theme(axis.text.x = element_text(angle = 90)) +
-  xlab("Variability of Trt and Trt*Age Coefficients") +
-  ylab("CI Coverage Percent in Target Sample") +
-  ggtitle("Same Target Distribution")
-
-#different target dist
-all_long %>%
-  filter(Metric == "target_coverage",
-         target_dist == "different") %>%
-  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
-  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
-  facet_grid(distribution~eps_study_m) +
-  scale_y_continuous(labels = scales::percent) +
-  theme(axis.text.x = element_text(angle = 90)) +
-  xlab("Variability of Trt and Trt*Age Coefficients") +
-  ylab("CI Coverage Percent in Target Sample") +
-  ggtitle("Different Target Distribution")
-```
-
-```{r}
-#removing GLHT
-#same target dist
-all_long %>%
-  filter(Metric == "target_coverage",
          target_dist == "same",
-         model != "GLHT") %>%
-  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
-  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
-  facet_grid(distribution~eps_study_m) +
-  scale_y_continuous(labels = scales::percent) +
+         eps_study_m == 1) %>%
+  ggplot(aes(x=eps, y=Mean, group=Method, color=model)) +
+  geom_jitter(aes(shape=spec), size=2.5, width=.2, height=0) +
+  facet_wrap(~distribution) +
+  scale_y_continuous(labels = scales::percent, limits = c(.75, 1)) +
   theme(axis.text.x = element_text(angle = 90)) +
   xlab("Variability of Trt and Trt*Age Coefficients") +
   ylab("CI Coverage Percent in Target Sample") +
@@ -115,16 +90,18 @@ all_long %>%
 all_long %>%
   filter(Metric == "target_coverage",
          target_dist == "different",
-         model != "GLHT") %>%
-  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
-  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
+         eps_study_m == 1) %>%
+  ggplot(aes(x=eps, y=Mean, group=Method, color=model)) +
+  geom_jitter(aes(shape=spec), size=2.5, width=.2, height=0) +
   facet_grid(distribution~eps_study_m) +
-  scale_y_continuous(labels = scales::percent) +
+  scale_y_continuous(labels = scales::percent, limits = c(.75, 1)) +
   theme(axis.text.x = element_text(angle = 90)) +
   xlab("Variability of Trt and Trt*Age Coefficients") +
   ylab("CI Coverage Percent in Target Sample") +
   ggtitle("Different Target Distribution")
+```
 
+```{r}
 #same and different target dist on one plot
 all_long %>%
   filter(Metric == "target_coverage",
@@ -198,7 +175,8 @@ all_long %>%
 #same target dist
 all_long %>%
   filter(Metric == "target_length",
-         target_dist == "same") %>%
+         target_dist == "same",
+         eps_study_m == 1) %>%
   ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
   geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
   facet_grid(distribution~eps_study_m, scales='free') +
@@ -227,7 +205,8 @@ all_long %>%
 #same target dist
 all_long %>%
   filter(Metric == "target_mse",
-         target_dist == "same") %>%
+         target_dist == "same",
+         eps_study_m == 1) %>%
   ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
   geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
   facet_grid(distribution~eps_study_m, scales='free') +

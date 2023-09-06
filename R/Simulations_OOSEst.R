@@ -17,6 +17,7 @@ K <- 10
 n_mean <- 500
 n_sd <- 0
 n_target <- 100
+honesty <- T
 
 covars <- list(list(covars_fix="age", covars_rand="age", lin=T,
                     eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05),
@@ -46,7 +47,7 @@ covars <- list(list(covars_fix="age", covars_rand="age", lin=T,
                     eps_study_m=1, eps_study_tau=0.5, eps_study_inter=0.5))
 
 settings <- expand.grid(moderators = c(1:length(covars)),
-                        distribution = c("same", "varying_madrs", "halfdiff_madrsage", "separate_age"),
+                        distribution = c("same", "varying_madrs", "separate_age"),
                         target_dist = c("same", "different"),
                         iteration = c(1:100))
 
@@ -72,6 +73,7 @@ results <- compare_oos(K=K, n_mean=n_mean, n_sd=n_sd, n_target=n_target, covars_
                        covars_rand=covars_rand, lin=lin, eps_study_m=eps_study_m, eps_study_tau=eps_study_tau, 
                        eps_study_inter=eps_study_inter, distribution=distribution, target_dist=target_dist)
 save(results, file=paste(paste("results",seed,iteration,K,n_mean,n_sd,n_target,"modset",moderators,
-                               lin,eps_study_m,eps_study_tau,distribution,target_dist,sep = "_"),
+                               lin,eps_study_m,eps_study_tau,eps_study_inter,distribution,
+                               target_dist,sep = "_"),
                          ".Rdata",sep=""))
 

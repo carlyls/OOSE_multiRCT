@@ -99,6 +99,7 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
       as.data.frame() %>%
       mutate(sex = ifelse(sex > 1-0.6784, 1, 0),
              smstat = ifelse(smstat > 1-0.3043, 1, 0),
+             age2 = age^2,
              eps = rnorm(n=n_target, mean=0, sd=.05),
              W = rbinom(n=n_target, size=1, prob=.5))
     

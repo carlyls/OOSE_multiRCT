@@ -118,10 +118,36 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   #within-forest default
   default_target <- impute_default(K, target_dat, tau_forest, covars)
   
+  rm(tau_forest)
+  
   #calculate mean and CIs for individuals and assess accuracy
   rand_res <- assess_interval(cf_train, rand_target)
   mem_res <- assess_interval(cf_train, mem_target)
   default_res <- assess_interval(cf_train, default_target)
+  
+  
+  ## Adaptive Causal Forest
+  tau_forest_a <- grf::causal_forest(X=feat, Y=train_dat$Y, W=train_dat$W, 
+                                   num.threads=3, honesty=F, num.trees=1000)
+  tau_hat_a <- predict(tau_forest_a, estimate.variance=T)
+  
+  #causal forest CI - training
+  cf_train_a <- cf_ci(train_dat, tau_hat_a)
+  
+  #causal forest CI - target
+  #random
+  rand_target_a <- impute_rand(1000, target_dat, tau_forest_a, covars)
+  #study membership model
+  mem_target_a <- impute_mem(1000, train_dat, target_dat, tau_forest_a, covars)
+  #within-forest default
+  default_target_a <- impute_default(K, target_dat, tau_forest_a, covars)
+  
+  rm(tau_forest_a)
+  
+  #calculate mean and CIs for individuals and assess accuracy
+  rand_a_res <- assess_interval(cf_train_a, rand_target_a)
+  mem_a_res <- assess_interval(cf_train_a, mem_target_a)
+  default_a_res <- assess_interval(cf_train_a, default_target_a)
   
   
   ## Save results
@@ -134,7 +160,8 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
                        distribution=distribution, target_dist=target_dist)
   
   #data frame of results
-  all_res <- cbind(manual_res, manual_res_wrong, rand_res, mem_res, default_res) %>%
+  all_res <- cbind(manual_res, manual_res_wrong, rand_res, mem_res, default_res,
+                   rand_a_res, mem_a_res, default_a_res) %>%
     data.frame() %>%
     rownames_to_column("Metric") %>%
     cbind(params)
