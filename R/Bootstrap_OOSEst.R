@@ -23,7 +23,7 @@ cf_ci <- function(df, tau_hat) {
 
 #### OPTION 1: COMPLETELY RANDOM ####
 
-impute_rand <- function(N, target_dat, tau_forest, covars) {
+impute_rand <- function(N, K, target_dat, tau_forest, covars) {
   
   #assign study
   new_dat <- target_dat %>%

@@ -62,27 +62,30 @@ sbart_ci <- function(train_dat, sbart) {
   
   return(cis)
 }
-#results
-#get means and variance for each person
-w <- train_dat$W
-means <- apply(sbart$yhat.train, 2, mean)
-means_cf <- apply(sbart$yhat.test, 2, mean)
-vars <- apply(sbart$yhat.train, 2, var)
-vars_cf <- apply(sbart$yhat.test, 2, var)
-#cate
-mu1 <- w*means + (1-w)*means_cf
-mu0 <- (1-w)*means + w*means_cf
-means_cate <- mu1 - mu0
-vars_cate <- vars + vars_cf
 
-#add to dataframe
-res <- train_dat %>%
-  mutate(mean = means_cate,
-         lower = means_cate - 1.96*sqrt(vars_cate),
-         upper = means_cate + 1.96*sqrt(vars_cate))
+# #results
+# #get means and variance for each person
+# w <- train_dat$W
+# means <- apply(sbart$yhat.train, 2, mean)
+# means_cf <- apply(sbart$yhat.test, 2, mean)
+# vars <- apply(sbart$yhat.train, 2, var)
+# vars_cf <- apply(sbart$yhat.test, 2, var)
+# #cate
+# mu1 <- w*means + (1-w)*means_cf
+# mu0 <- (1-w)*means + w*means_cf
+# means_cate <- mu1 - mu0
+# vars_cate <- vars + vars_cf
+# 
+# #add to dataframe
+# res <- train_dat %>%
+#   mutate(mean = means_cate,
+#          lower = means_cate - 1.96*sqrt(vars_cate),
+#          upper = means_cate + 1.96*sqrt(vars_cate))
 
 ## now need to do the same but get intervals for the target data
 #use predict function on target data
+
+sbart_target <- function(K, target_dat, sbart)
 #set up one row per study for all rows of target data
 new_dat <- target_dat %>%
   slice(rep(1:n(), each=K)) %>%

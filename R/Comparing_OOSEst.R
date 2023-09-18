@@ -111,7 +111,7 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   cf_train <- cf_ci(train_dat, tau_hat)
   
   #causal forest CI - target
-  cf_target <- impute_rand(1000, target_dat, tau_forest, covars)
+  cf_target <- impute_rand(1000, K, target_dat, tau_forest, covars)
 
   rm(tau_forest)
   
@@ -128,7 +128,7 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   cf_train_a <- cf_ci(train_dat, tau_hat_a)
   
   #causal forest CI - target
-  cf_target_a <- impute_rand(1000, target_dat, tau_forest_a, covars)
+  cf_target_a <- impute_rand(1000, K, target_dat, tau_forest_a, covars)
   
   rm(tau_forest_a)
   
