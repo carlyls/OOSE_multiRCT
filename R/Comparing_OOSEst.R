@@ -191,28 +191,3 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   return(list(all_res, ipe))
 }
 
-
-
-
-
-#### UNUSED ####
-
-# #confidence interval
-# glht_train <- glht_ci(train_dat, mod)
-# glht_target <- glht_ci(target_dat, mod)
-# glht_res <- assess_interval(glht_train, glht_target)
-
-# #confidence interval - incorrectly specified
-# glht_train_wrong <- glht_ci(train_dat, mod_wrong)
-# glht_target_wrong <- glht_ci(target_dat, mod_wrong)
-# glht_res_wrong <- assess_interval(glht_train_wrong, glht_target_wrong)
-
-# #bootstrap PI
-# boot_train <- boot_pi(train_dat, mod, covars_fix, covars_rand)
-# boot_target <- boot_pi(target_dat, mod, covars_fix, covars_rand)
-# boot_res <- assess_interval(boot_train, boot_target)
-# 
-# #bootstrap PI - incorrectly specified
-# boot_train_wrong <- boot_pi(train_dat, mod_wrong, covars_fix, c())
-# boot_target_wrong <- boot_pi(target_dat, mod_wrong, covars_fix, c())
-# boot_res_wrong <- assess_interval(boot_train_wrong, boot_target_wrong)

@@ -22,6 +22,53 @@ target_dat <- sim_dat[["target_dat"]]
 covars <- c("sex","smstat","weight","age","madrs")  #how to treat S as categorical?
 ncovars <- length(covars)
 
+#t-learner #####
+#define two model setups
+tlearn_setup <- function(train_dat, covars, w) {
+  
+  mod_dat <- train_dat %>% filter(W == w)
+  feat <- mod_dat %>%
+    dplyr::select(c(S, all_of(covars))) %>%
+    fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
+  y <- as.numeric(mod_dat$Y)
+  
+  return(list(mod_dat=mod_dat, feat=feat, y=y))
+}
+
+#m1
+m1_setup <- tlearn_setup(train_dat, covars, w=1)
+tbart1 <- dbarts::bart(x.train = as.matrix(m1_setup[["feat"]]), y.train = m1_setup[["y"]],
+                       x.test = as.matrix(m0_setup[["feat"]]), keeptrees = T)
+
+#m0
+m0_setup <- tlearn_setup(train_dat, covars, w=0)
+tbart0 <- dbarts::bart(x.train = as.matrix(m0_setup[["feat"]]), y.train = m0_setup[["y"]],
+                       x.test = as.matrix(m1_setup[["feat"]]), keeptrees = T)
+
+#treated people: Y1 - m0(X1), so use training outcome from tbart1 and testing outcome from tbart0
+#control people: m1(X0) - Y0, so use testing outcome from tbart1 and training outcome from tbart0
+cate1 <- tbart1$yhat.train.mean - tbart0$yhat.test.mean
+cate0 <- tbart1$yhat.test.mean - tbart0$yhat.train.mean
+var1 <- apply(tbart1$yhat.train, 2, var) + apply(tbart0$yhat.test, 2, var)
+var0 <- apply(tbart1$yhat.test, 2, var) + apply(tbart0$yhat.train, 2, var)
+
+#add to dataframe
+cis <- m1_setup[["mod_dat"]] %>%
+  bind_rows(m0_setup[["mod_dat"]]) %>%
+  mutate(mean = c(cate1, cate0),
+         lower = c(cate1 - 1.96*sqrt(var1), cate0 - 1.96*sqrt(var0)),
+         upper = c(cate1 + 1.96*sqrt(var1), cate0 + 1.96*sqrt(var0)))
+
+#reorder to match target data
+cis_ord <- train_dat %>%
+  left_join(cis, by = c(names(train_dat)))
+
+
+
+
+
+
+
 #s-learner #####
 feat <- dplyr::select(train_dat, c(W, S, all_of(covars))) %>%
   fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
