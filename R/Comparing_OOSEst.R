@@ -136,6 +136,34 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   cf_a_res <- assess_interval(cf_train_a, cf_target_a)
   
   
+  ## BART: S-learner
+  #use covariates from above
+  
+  #update features to include W
+  feat <- dplyr::select(train_dat, c(W, S, all_of(covars))) %>%
+    fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
+  
+  #include counterfactual covariates (swap control and treatment)
+  feat_cf <- feat %>%
+    mutate(W = as.numeric(W == 0))
+  
+  y <- as.numeric(train_dat$Y)
+  
+  #run bart
+  sbart <- dbarts::bart(x.train=as.matrix(feat), y.train=y, x.test=as.matrix(feat_cf), keeptrees=T)
+  
+  #S-BART credible interval - training
+  sb_train <- sbart_ci(train_dat, sbart)
+  
+  #S-BART credible interval - target
+  sb_target <- sbart_target(K, target_dat, sbart, covars)
+  
+  rm(sbart)
+  
+  #calculate mean and CIs for individuals and assess accuracy
+  sb_res <- assess_interval(sb_train, sb_target)
+  
+  
   ## Save results
   #data frame of parameters
   params <- data.frame(K=K, n_mean=n_mean, n_sd=n_sd, n_target=n_target, 
@@ -146,7 +174,7 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
                        distribution=distribution, target_dist=target_dist)
   
   #data frame of results
-  all_res <- cbind(manual_res, manual_res_wrong, cf_res, cf_a_res) %>%
+  all_res <- cbind(manual_res, manual_res_wrong, cf_res, cf_a_res, sb_res) %>%
     data.frame() %>%
     rownames_to_column("Metric") %>%
     cbind(params)
@@ -156,7 +184,8 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
     mutate(manual_ipe = manual_target$tau - manual_target$mean,
            manual_wrong_ipe = manual_target_wrong$tau - manual_target_wrong$mean,
            cf_ipe = cf_target$tau - cf_target$mean,
-           cf_a_ipe = cf_target_a$tau - cf_target_a$mean)
+           cf_a_ipe = cf_target_a$tau - cf_target_a$mean,
+           sb_ipe = sb_target$tau - sb_target$mean)
   
   
   return(list(all_res, ipe))
