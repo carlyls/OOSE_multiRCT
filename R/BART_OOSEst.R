@@ -45,6 +45,7 @@ m0_setup <- tlearn_setup(train_dat, covars, w=0)
 tbart0 <- dbarts::bart(x.train = as.matrix(m0_setup[["feat"]]), y.train = m0_setup[["y"]],
                        x.test = as.matrix(m1_setup[["feat"]]), keeptrees = T)
 
+#training data
 #treated people: Y1 - m0(X1), so use training outcome from tbart1 and testing outcome from tbart0
 #control people: m1(X0) - Y0, so use testing outcome from tbart1 and training outcome from tbart0
 cate1 <- tbart1$yhat.train.mean - tbart0$yhat.test.mean
@@ -62,6 +63,56 @@ cis <- m1_setup[["mod_dat"]] %>%
 #reorder to match target data
 cis_ord <- train_dat %>%
   left_join(cis, by = c(names(train_dat)))
+
+### next need to add setup for t-learner target data and turn into functions and add to main comparing.R ####
+#target data
+#set up one row per study for all rows of target data
+new_dat <- target_dat %>%
+  slice(rep(1:n(), each=K)) %>%
+  mutate(S = rep(1:K, nrow(target_dat)))
+new_feat1 <- tlearn_setup(new_dat, covars, w=1)[["feat"]]
+new_feat0 <- tlearn_setup(new_dat, covars, w=0)[["feat"]]
+
+#define counterfactual
+new_feat1_cf <- new_feat1 %>% mutate(W = 0)
+new_feat0_cf <- new_feat0 %>% mutate(W = 1)
+
+#predict on target data
+target_pred1 <- predict(tbart1, new_feat1) #treated individual Y1
+target_pred1_cf <- predict(tbart0, new_feat1) #treated individual Y0
+target_pred0_cf <- predict(tbart1, new_feat0) #control individual Y1
+target_pred0 <- predict(tbart0, new_feat0) #control individual Y0
+y1 <- cbind(target_pred1, target_pred0_cf)
+y0 <- cbind(target_pred1_cf, target_pred0)
+
+#calculate differences across all posterior draws
+#get means and variance for each person
+means_cate_target <- lower_cate_target <- upper_cate_target <- c()
+for (i in 1:nrow(target_dat)) {
+  inds <- (K*(i-1)+1):(K*i)
+  pred1 <- c(y1[,inds])
+  pred0 <- c(y0[,inds])
+  
+  mean_cate_target <- mean(pred1) - mean(pred0)
+  var_cate_target <- var(pred1) + var(pred0)
+  
+  means_cate_target <- c(means_cate_target, mean_cate_target)
+  lower_cate_target <- c(lower_cate_target, 
+                         mean_cate_target - 1.96*sqrt(var_cate_target))
+  upper_cate_target <- c(upper_cate_target, 
+                         mean_cate_target + 1.96*sqrt(var_cate_target))
+}
+
+#add to dataframe
+cis <- filter(target_dat, W == 1) %>%
+  bind_rows(filter(target_dat, W == 0)) %>%
+  mutate(mean = means_cate_target,
+         lower = lower_cate_target,
+         upper = upper_cate_target)
+
+#reorder to match target data
+cis_ord <- target_dat %>%
+  left_join(cis, by = c(names(target_dat)))
 
 
 
