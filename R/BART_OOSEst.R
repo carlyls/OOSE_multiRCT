@@ -125,10 +125,6 @@ tbart_target <- function(K, target_dat, tbart1, tbart0, covars) {
 
 
 
-
-
-
-
 #s-learner #####
 feat <- dplyr::select(train_dat, c(W, S, all_of(covars))) %>%
   fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)

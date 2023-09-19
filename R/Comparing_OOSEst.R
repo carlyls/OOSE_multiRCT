@@ -138,7 +138,6 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   
   ## BART: S-learner
   #use covariates from above
-  
   #update features to include W
   feat <- dplyr::select(train_dat, c(W, S, all_of(covars))) %>%
     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
@@ -146,7 +145,6 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   #include counterfactual covariates (swap control and treatment)
   feat_cf <- feat %>%
     mutate(W = as.numeric(W == 0))
-  
   y <- as.numeric(train_dat$Y)
   
   #run bart
@@ -164,6 +162,30 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   sb_res <- assess_interval(sb_train, sb_target)
   
   
+  ## BART: S-learner
+  #use covariates from above
+  #run bart for m1
+  m1_setup <- tlearn_setup(train_dat, covars, w=1)
+  tbart1 <- dbarts::bart(x.train = as.matrix(m1_setup[["feat"]]), y.train = m1_setup[["y"]],
+                         x.test = as.matrix(m0_setup[["feat"]]), keeptrees = T)
+  
+  #run bart for m0
+  m0_setup <- tlearn_setup(train_dat, covars, w=0)
+  tbart0 <- dbarts::bart(x.train = as.matrix(m0_setup[["feat"]]), y.train = m0_setup[["y"]],
+                         x.test = as.matrix(m1_setup[["feat"]]), keeptrees = T)
+  
+  #T-BART credible interval - training
+  tb_train <- tbart_ci(train_dat, tbart1, tbart0)
+  
+  #T-BART credible interval - target
+  tb_target <- tbart_target(K, target_dat, tbart1, tbart0, covars)
+  
+  rm(c(tbart1, tbart0))
+  
+  #calculate mean and CIs for individuals and assess accuracy
+  tb_res <- assess_interval(tb_train, tb_target)
+  
+  
   ## Save results
   #data frame of parameters
   params <- data.frame(K=K, n_mean=n_mean, n_sd=n_sd, n_target=n_target, 
@@ -174,7 +196,7 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
                        distribution=distribution, target_dist=target_dist)
   
   #data frame of results
-  all_res <- cbind(manual_res, manual_res_wrong, cf_res, cf_a_res, sb_res) %>%
+  all_res <- cbind(manual_res, manual_res_wrong, cf_res, cf_a_res, sb_res, tb_res) %>%
     data.frame() %>%
     rownames_to_column("Metric") %>%
     cbind(params)
@@ -185,7 +207,8 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
            manual_wrong_ipe = manual_target_wrong$tau - manual_target_wrong$mean,
            cf_ipe = cf_target$tau - cf_target$mean,
            cf_a_ipe = cf_target_a$tau - cf_target_a$mean,
-           sb_ipe = sb_target$tau - sb_target$mean)
+           sb_ipe = sb_target$tau - sb_target$mean,
+           tb_ipe = tb_target$tau - tb_target$mean)
   
   
   return(list(all_res, ipe))
