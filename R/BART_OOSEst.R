@@ -35,15 +35,15 @@ tlearn_setup <- function(train_dat, covars, w) {
   return(list(mod_dat=mod_dat, feat=feat, y=y))
 }
 
-#m1
-m1_setup <- tlearn_setup(train_dat, covars, w=1)
-tbart1 <- dbarts::bart(x.train = as.matrix(m1_setup[["feat"]]), y.train = m1_setup[["y"]],
-                       x.test = as.matrix(m0_setup[["feat"]]), keeptrees = T)
-
-#m0
-m0_setup <- tlearn_setup(train_dat, covars, w=0)
-tbart0 <- dbarts::bart(x.train = as.matrix(m0_setup[["feat"]]), y.train = m0_setup[["y"]],
-                       x.test = as.matrix(m1_setup[["feat"]]), keeptrees = T)
+# #m1
+# m1_setup <- tlearn_setup(train_dat, covars, w=1)
+# tbart1 <- dbarts::bart(x.train = as.matrix(m1_setup[["feat"]]), y.train = m1_setup[["y"]],
+#                        x.test = as.matrix(m0_setup[["feat"]]), keeptrees = T)
+# 
+# #m0
+# m0_setup <- tlearn_setup(train_dat, covars, w=0)
+# tbart0 <- dbarts::bart(x.train = as.matrix(m0_setup[["feat"]]), y.train = m0_setup[["y"]],
+#                        x.test = as.matrix(m1_setup[["feat"]]), keeptrees = T)
 
 #training data
 tbart_ci <- function(train_dat, tbart1, tbart0) {
@@ -78,10 +78,6 @@ tbart_target <- function(K, target_dat, tbart1, tbart0, covars) {
     mutate(S = rep(1:K, nrow(target_dat)))
   new_feat1 <- tlearn_setup(new_dat, covars, w=1)[["feat"]]
   new_feat0 <- tlearn_setup(new_dat, covars, w=0)[["feat"]]
-  
-  #define counterfactual
-  new_feat1_cf <- new_feat1 %>% mutate(W = 0)
-  new_feat0_cf <- new_feat0 %>% mutate(W = 1)
   
   #predict on target data
   target_pred1 <- predict(tbart1, new_feat1) #treated individual Y1
@@ -143,24 +139,40 @@ sbart <- dbarts::bart(x.train=as.matrix(feat), y.train=y, x.test=as.matrix(feat_
 #plot(sbart$sigma)
 
 ## S-learner for training data
-sbart_ci <- function(train_dat, sbart) {
+sbart_ci <- function(train_dat, sbart, pairwise_diff=F) {
   
-  #get means and variance for each person
-  w <- train_dat$W
-  means <- apply(sbart$yhat.train, 2, mean)
-  means_cf <- apply(sbart$yhat.test, 2, mean)
-  vars <- apply(sbart$yhat.train, 2, var)
-  vars_cf <- apply(sbart$yhat.test, 2, var)
-  
-  #estimate cate and interval
-  mu1 <- w*means + (1-w)*means_cf
-  mu0 <- (1-w)*means + w*means_cf
-  means_cate <- mu1 - mu0
-  vars_cate <- vars + vars_cf
+  if (pairwise_diff == F) {
+    
+    #get means and variance for each person
+    w <- train_dat$W
+    means <- apply(sbart$yhat.train, 2, mean)
+    means_cf <- apply(sbart$yhat.test, 2, mean)
+    vars <- apply(sbart$yhat.train, 2, var)
+    vars_cf <- apply(sbart$yhat.test, 2, var)
+    
+    #estimate cate and interval
+    mu1 <- w*means + (1-w)*means_cf
+    mu0 <- (1-w)*means + w*means_cf
+    means_cate <- mu1 - mu0
+    vars_cate <- vars + vars_cf
+    
+  } else {
+    
+    #get pairwise differences
+    w <- train_dat$W
+    pairwise_diffs <- sbart$yhat.train - sbart$yhat.test #some of these are the wrong order
+    
+    #estimate mean and variance
+    means_cate <- apply(pairwise_diffs, 2, mean)
+    means_cate <- ifelse(w == 1, means_cate, -means_cate) #fix order by flipping sign of Y0-Y1
+    vars_cate <- apply(pairwise_diffs, 2, var)
+    
+  }
   
   #add to dataframe
   cis <- train_dat %>%
     mutate(mean = means_cate,
+           var = vars_cate,
            lower = means_cate - 1.96*sqrt(vars_cate),
            upper = means_cate + 1.96*sqrt(vars_cate))
   
@@ -168,7 +180,7 @@ sbart_ci <- function(train_dat, sbart) {
 }
 
 ## S-learner for target data
-sbart_target <- function(K, target_dat, sbart, covars) {
+sbart_target <- function(K, target_dat, sbart, covars, pairwise_diff=F) {
   
   #set up one row per study for all rows of target data
   new_dat <- target_dat %>%
@@ -187,29 +199,55 @@ sbart_target <- function(K, target_dat, sbart, covars) {
   target_pred <- predict(sbart, new_feat)
   target_pred_cf <- predict(sbart, new_feat_cf)
   
-  #calculate differences across all posterior draws
-  #get means and variance for each person
-  means_cate_target <- lower_cate_target <- upper_cate_target <- c()
-  for (i in 1:nrow(target_dat)) {
-    inds <- (K*(i-1)+1):(K*i)
-    pred <- c(target_pred[,inds])
-    pred_cf <- c(target_pred_cf[,inds])
+  if (pairwise_diff == F) {
     
-    mu1_target <- w_target[i]*mean(pred) + (1-w_target[i])*mean(pred_cf)
-    mu0_target <- (1-w_target[i])*mean(pred) + w_target[i]*mean(pred_cf)
-    mean_cate_target <- mu1_target - mu0_target
-    var_cate_target <- var(pred) + var(pred_cf)
+    #calculate differences across all posterior draws
+    #get means and variance for each person
+    means_cate_target <- vars_cate_target <- lower_cate_target <- upper_cate_target <- c()
+    for (i in 1:nrow(target_dat)) {
+      inds <- (K*(i-1)+1):(K*i)
+      pred <- c(target_pred[,inds])
+      pred_cf <- c(target_pred_cf[,inds])
+      
+      mu1_target <- w_target[i]*mean(pred) + (1-w_target[i])*mean(pred_cf)
+      mu0_target <- (1-w_target[i])*mean(pred) + w_target[i]*mean(pred_cf)
+      mean_cate_target <- mu1_target - mu0_target
+      var_cate_target <- var(pred) + var(pred_cf)
+      
+      means_cate_target <- c(means_cate_target, mean_cate_target)
+      vars_cate_target <- c(vars_cate_target, var_cate_target)
+      lower_cate_target <- c(lower_cate_target, 
+                             mean_cate_target - 1.96*sqrt(var_cate_target))
+      upper_cate_target <- c(upper_cate_target, 
+                             mean_cate_target + 1.96*sqrt(var_cate_target))
+    }
     
-    means_cate_target <- c(means_cate_target, mean_cate_target)
-    lower_cate_target <- c(lower_cate_target, 
-                           mean_cate_target - 1.96*sqrt(var_cate_target))
-    upper_cate_target <- c(upper_cate_target, 
-                           mean_cate_target + 1.96*sqrt(var_cate_target))
+  } else {
+    
+    pairwise_diffs <- target_pred - target_pred_cf #some of these are the wrong order
+    means_cate_target <- vars_cate_target <- lower_cate_target <- upper_cate_target <- c()
+    for (i in 1:nrow(target_dat)) {
+      inds <- (K*(i-1)+1):(K*i)
+      pairwise_diffs_inds <- c(pairwise_diffs[,inds])
+      
+      mean_cate_target <- mean(pairwise_diffs_inds)
+      mean_cate_target <- ifelse(w_target[i] == 1, mean_cate_target, -mean_cate_target) #fix order by flipping sign of Y0-Y1
+      var_cate_target <- var(pairwise_diffs_inds)
+      
+      means_cate_target <- c(means_cate_target, mean_cate_target)
+      vars_cate_target <- c(vars_cate_target, var_cate_target)
+      lower_cate_target <- c(lower_cate_target, 
+                             mean_cate_target - 1.96*sqrt(var_cate_target))
+      upper_cate_target <- c(upper_cate_target, 
+                             mean_cate_target + 1.96*sqrt(var_cate_target))
+    }
+    
   }
-  
+
   #add to target data
   cis <- target_dat %>%
     mutate(mean = means_cate_target,
+           var = vars_cate_target,
            lower = lower_cate_target,
            upper = upper_cate_target)
   
