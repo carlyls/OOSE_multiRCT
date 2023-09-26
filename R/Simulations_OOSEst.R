@@ -50,7 +50,7 @@ settings <- expand.grid(moderators = c(1:length(covars)),
                         iteration = c(1:100))
 
 #set row of settings and define parameters
-i=as.numeric(Sys.getenv('SGE_TASK_ID'))
+i=as.numeric(Sys.getenv('SLURM_ARRAY_TASK_ID'))
 
 moderators <- settings$moderators[i]
 covars_fix <- covars[[moderators]]$covars_fix
