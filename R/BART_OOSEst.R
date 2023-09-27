@@ -1,26 +1,21 @@
 ## Fitting BART to Simulated Data
 
-library(tidyverse)
-library(BayesTree)
-library(dbarts)
-
-source("R/MDD_Generation_OOSEst.R")
-source("R/MA_OOSEst.R")
-source("R/Bootstrap_OOSEst.R")
-source("R/Comparing_OOSEst.R")
+# library(tidyverse)
+# library(BayesTree)
+# library(dbarts)
 
 #generate dataset using defaults
-K <- 5
-sim_dat <- gen_mdd(K=5, n_mean=100)
-train_dat <- sim_dat[["train_dat"]]
-target_dat <- sim_dat[["target_dat"]]
+# K <- 5
+# sim_dat <- gen_mdd(K=5, n_mean=100)
+# train_dat <- sim_dat[["train_dat"]]
+# target_dat <- sim_dat[["target_dat"]]
 
 
 #bart ###########
 
 #define covariates (ignore age^2 for now)
-covars <- c("sex","smstat","weight","age","madrs")  #how to treat S as categorical?
-ncovars <- length(covars)
+# covars <- c("sex","smstat","weight","age","madrs")  #how to treat S as categorical?
+# ncovars <- length(covars)
 
 #t-learner #####
 #define two model setups
@@ -122,17 +117,17 @@ tbart_target <- function(K, target_dat, tbart1, tbart0, covars) {
 
 
 #s-learner #####
-feat <- dplyr::select(train_dat, c(W, S, all_of(covars))) %>%
-  fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
-
-feat_cf <- feat %>%
-  mutate(W = as.numeric(W == 0)) #swap control and treatment for test data
-
-y <- as.numeric(train_dat$Y)
+# feat <- dplyr::select(train_dat, c(W, S, all_of(covars))) %>%
+#   fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
+# 
+# feat_cf <- feat %>%
+#   mutate(W = as.numeric(W == 0)) #swap control and treatment for test data
+# 
+# y <- as.numeric(train_dat$Y)
 
 #run bart
-set.seed(2)
-sbart <- dbarts::bart(x.train=as.matrix(feat), y.train=y, x.test=as.matrix(feat_cf), keeptrees=T)
+# set.seed(2)
+# sbart <- dbarts::bart(x.train=as.matrix(feat), y.train=y, x.test=as.matrix(feat_cf), keeptrees=T)
 #save.image()
 
 #check convergence

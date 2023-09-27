@@ -1,12 +1,12 @@
 ### Simulation Approach for OOS Estimation: Based on MDD Data ###
 
-library(tidyverse)
-library(rsample)
-library(lme4)
-library(multcomp)
-library(MASS)
-library(grf)
-library(nnet)
+# library(tidyverse)
+# library(rsample)
+# library(lme4)
+# library(multcomp)
+# library(MASS)
+# library(grf)
+# library(nnet)
 
 #interior function
 sample_dist <- function(k, n, Sigma, eps_study_m, eps_study_tau, 

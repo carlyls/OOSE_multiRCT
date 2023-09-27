@@ -1,12 +1,12 @@
 ### Random Effects Meta-Analysis Prediction Intervals ###
 
-library(tidyverse)
-library(lme4)
-library(rsample)
-library(multcomp)
-library(MASS)
-library(grf)
-library(nnet)
+# library(tidyverse)
+# library(lme4)
+# library(rsample)
+# library(multcomp)
+# library(MASS)
+# library(grf)
+# library(nnet)
 
 
 #### OPTION 1: Prediction interval by hand ####

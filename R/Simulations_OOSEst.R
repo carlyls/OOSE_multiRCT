@@ -6,10 +6,12 @@ library(rsample)
 library(multcomp)
 library(MASS)
 library(grf)
+library(dbarts)
 
 source("R/MDD_Generation_OOSEst.R")
 source("R/MA_OOSEst.R")
 source("R/Bootstrap_OOSEst.R")
+source("R/BART_OOSEst.R")
 source("R/Comparing_OOSEst.R")
 
 # set up parameters
@@ -19,7 +21,7 @@ n_sd <- 0
 n_target <- 100
 honesty <- T
 
-covars <- list(list(covars_fix="age", covars_rand="age", lin=T,
+mods <- list(list(covars_fix="age", covars_rand="age", lin=T,
                     eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05),
                list(covars_fix="age", covars_rand="age", lin=T,
                     eps_study_m=1, eps_study_tau=0.05, eps_study_inter=0.05),
@@ -44,7 +46,7 @@ covars <- list(list(covars_fix="age", covars_rand="age", lin=T,
                list(covars_fix="age", covars_rand="age", lin=F,
                     eps_study_m=1, eps_study_tau=0.5, eps_study_inter=0.5))
 
-settings <- expand.grid(moderators = c(1:length(covars)),
+settings <- expand.grid(moderators = c(1:length(mods)),
                         distribution = c("same", "varying_madrs", "separate_age"),
                         target_dist = c("same", "different"),
                         iteration = c(1:100))
@@ -53,12 +55,12 @@ settings <- expand.grid(moderators = c(1:length(covars)),
 i=as.numeric(Sys.getenv('SLURM_ARRAY_TASK_ID'))
 
 moderators <- settings$moderators[i]
-covars_fix <- covars[[moderators]]$covars_fix
-covars_rand <- covars[[moderators]]$covars_rand
-eps_study_m <- covars[[moderators]]$eps_study_m
-eps_study_tau <- covars[[moderators]]$eps_study_tau
-eps_study_inter <- covars[[moderators]]$eps_study_inter
-lin <- covars[[moderators]]$lin
+covars_fix <- mods[[moderators]]$covars_fix
+covars_rand <- mods[[moderators]]$covars_rand
+eps_study_m <- mods[[moderators]]$eps_study_m
+eps_study_tau <- mods[[moderators]]$eps_study_tau
+eps_study_inter <- mods[[moderators]]$eps_study_inter
+lin <- mods[[moderators]]$lin
 
 distribution <- settings$distribution[i]
 target_dist <- settings$target_dist[i]

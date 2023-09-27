@@ -1,16 +1,12 @@
 ### Trying Methods for OOS Estimation in Random Effects Meta-Analysis and Causal Forests ###
 
-library(tidyverse)
-library(lme4)
-library(rsample)
-library(multcomp)
-library(MASS)
-library(grf)
-library(nnet)
-
-source("R/MDD_Generation_OOSEst.R")
-source("R/MA_OOSEst.R")
-source("R/Bootstrap_OOSEst.R")
+# library(tidyverse)
+# library(lme4)
+# library(rsample)
+# library(multcomp)
+# library(MASS)
+# library(grf)
+# library(nnet)
 
 
 #check results for all methods ####
@@ -164,13 +160,14 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   
   ## BART: S-learner
   #use covariates from above
-  #run bart for m1
   m1_setup <- tlearn_setup(train_dat, covars, w=1)
+  m0_setup <- tlearn_setup(train_dat, covars, w=0)
+  
+  #run bart for m1
   tbart1 <- dbarts::bart(x.train = as.matrix(m1_setup[["feat"]]), y.train = m1_setup[["y"]],
                          x.test = as.matrix(m0_setup[["feat"]]), keeptrees = T)
   
   #run bart for m0
-  m0_setup <- tlearn_setup(train_dat, covars, w=0)
   tbart0 <- dbarts::bart(x.train = as.matrix(m0_setup[["feat"]]), y.train = m0_setup[["y"]],
                          x.test = as.matrix(m1_setup[["feat"]]), keeptrees = T)
   
@@ -180,7 +177,8 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   #T-BART credible interval - target
   tb_target <- tbart_target(K, target_dat, tbart1, tbart0, covars)
   
-  rm(c(tbart1, tbart0))
+  rm(tbart1)
+  rm(tbart0)
   
   #calculate mean and CIs for individuals and assess accuracy
   tb_res <- assess_interval(tb_train, tb_target)
@@ -211,6 +209,6 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
            tb_ipe = tb_target$tau - tb_target$mean)
   
   
-  return(list(all_res, ipe))
+  return(list(all_res=all_res, ipe=ipe))
 }
 
