@@ -54,8 +54,8 @@ tbart_ci <- function(train_dat, tbart1, tbart0) {
   cis <- filter(train_dat, W == 1) %>%
     bind_rows(filter(train_dat, W == 0)) %>%
     mutate(mean = c(cate1, cate0),
-           lower = c(cate1 - 1.96*sqrt(var1), cate0 - 1.96*sqrt(var0)),
-           upper = c(cate1 + 1.96*sqrt(var1), cate0 + 1.96*sqrt(var0)))
+           lower = c(cate1 - 2*sqrt(var1), cate0 - 2*sqrt(var0)),
+           upper = c(cate1 + 2*sqrt(var1), cate0 + 2*sqrt(var0)))
   
   #reorder to match target data
   cis_ord <- train_dat %>%
@@ -95,9 +95,9 @@ tbart_target <- function(K, target_dat, tbart1, tbart0, covars) {
     
     means_cate_target <- c(means_cate_target, mean_cate_target)
     lower_cate_target <- c(lower_cate_target, 
-                           mean_cate_target - 1.96*sqrt(var_cate_target))
+                           mean_cate_target - 2*sqrt(var_cate_target))
     upper_cate_target <- c(upper_cate_target, 
-                           mean_cate_target + 1.96*sqrt(var_cate_target))
+                           mean_cate_target + 2*sqrt(var_cate_target))
   }
   
   #add to target data
@@ -168,8 +168,8 @@ sbart_ci <- function(train_dat, sbart, pairwise_diff=F) {
   cis <- train_dat %>%
     mutate(mean = means_cate,
            var = vars_cate,
-           lower = means_cate - 1.96*sqrt(vars_cate),
-           upper = means_cate + 1.96*sqrt(vars_cate))
+           lower = means_cate - 2*sqrt(vars_cate),
+           upper = means_cate + 2*sqrt(vars_cate))
   
   return(cis)
 }
@@ -212,9 +212,9 @@ sbart_target <- function(K, target_dat, sbart, covars, pairwise_diff=F) {
       means_cate_target <- c(means_cate_target, mean_cate_target)
       vars_cate_target <- c(vars_cate_target, var_cate_target)
       lower_cate_target <- c(lower_cate_target, 
-                             mean_cate_target - 1.96*sqrt(var_cate_target))
+                             mean_cate_target - 2*sqrt(var_cate_target))
       upper_cate_target <- c(upper_cate_target, 
-                             mean_cate_target + 1.96*sqrt(var_cate_target))
+                             mean_cate_target + 2*sqrt(var_cate_target))
     }
     
   } else {
@@ -232,9 +232,9 @@ sbart_target <- function(K, target_dat, sbart, covars, pairwise_diff=F) {
       means_cate_target <- c(means_cate_target, mean_cate_target)
       vars_cate_target <- c(vars_cate_target, var_cate_target)
       lower_cate_target <- c(lower_cate_target, 
-                             mean_cate_target - 1.96*sqrt(var_cate_target))
+                             mean_cate_target - 2*sqrt(var_cate_target))
       upper_cate_target <- c(upper_cate_target, 
-                             mean_cate_target + 1.96*sqrt(var_cate_target))
+                             mean_cate_target + 2*sqrt(var_cate_target))
     }
     
   }

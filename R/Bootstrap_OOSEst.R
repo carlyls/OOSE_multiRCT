@@ -13,8 +13,8 @@ cf_ci <- function(df, tau_hat) {
   df <- df %>%
     mutate(mean = tau_hat$predictions,
            sd = sqrt(tau_hat$variance.estimates),
-           lower = mean + qt(.025, df=nrow(df)-1)*sd,
-           upper = mean + qt(.975, df=nrow(df)-1)*sd)
+           lower = mean - 2*sd,
+           upper = mean + 2*sd)
   return(df)
 }
 
@@ -46,8 +46,8 @@ impute_rand <- function(N, K, target_dat, tau_forest, covars) {
     group_by(sex, smstat, weight, age, age2, madrs, tau) %>%
     summarise(mean = mean(tau_hat),
               sd = sd(tau_hat)) %>%
-    mutate(lower = mean + qt(.025, df=N-1)*sd,
-           upper = mean + qt(.975, df=N-1)*sd)
+    mutate(lower = mean - 2*sd,
+           upper = mean + 2*sd)
   
   #reorder to match target data
   cis_ord <- target_dat %>%
@@ -97,8 +97,8 @@ impute_mem <- function(N, train_dat, target_dat, tau_forest, covars) {
     group_by(sex, smstat, weight, age, age2, madrs, tau) %>%
     summarise(mean = mean(tau_hat),
               sd = sd(tau_hat)) %>%
-    mutate(lower = mean + qt(.025, df=N-1)*sd,
-           upper = mean + qt(.975, df=N-1)*sd)
+    mutate(lower = mean - 2*sd,
+           upper = mean + 2*sd)
   
   return(cis)
 }
@@ -124,8 +124,8 @@ impute_default <- function(K, target_dat, tau_forest, covars) {
   
   #create confidence intervals
   cis <- new_default %>%
-    mutate(lower = mean + qt(.025, df=nrow(new_default)-1)*sd,
-           upper = mean + qt(.975, df=nrow(new_default)-1)*sd)
+    mutate(lower = mean - 2*sd,
+           upper = mean + 2*sd)
   
   return(cis)
 }
