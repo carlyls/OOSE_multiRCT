@@ -158,7 +158,7 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   sb_res <- assess_interval(sb_train, sb_target)
   
   
-  ## BART: S-learner
+  ## BART: T-learner
   #use covariates from above
   m1_setup <- tlearn_setup(train_dat, covars, w=1)
   m0_setup <- tlearn_setup(train_dat, covars, w=0)

@@ -45,7 +45,9 @@ impute_rand <- function(N, K, target_dat, tau_forest, covars) {
   cis <- new_dat %>%
     group_by(sex, smstat, weight, age, age2, madrs, tau) %>%
     summarise(mean = mean(tau_hat),
-              sd = sd(tau_hat)) %>%
+              sd = sd(tau_hat),
+              q2.5 = quantile(tau_hat, .025),
+              q97.5 = quantile(tau_hat, .975)) %>%
     mutate(lower = mean - 2*sd,
            upper = mean + 2*sd)
   
