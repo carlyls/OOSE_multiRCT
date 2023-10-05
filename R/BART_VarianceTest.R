@@ -24,7 +24,7 @@ eps_opt <- list(list(eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05)
                list(eps_study_m=1, eps_study_tau=0.5, eps_study_inter=0.05))
 
 settings <- expand.grid(moderators=c(1:2),
-                        iteration = c(1:20))
+                        iteration = c(1:100))
 
 #run iterations
 res <- data.frame()
@@ -88,7 +88,8 @@ for (i in 1:nrow(settings)) {
   #report results
   iter_res <- cbind(sb_res, sb_res_p) %>%
     data.frame() %>%
-    rownames_to_column("Metric")
+    rownames_to_column("Metric") %>%
+    mutate(moderators = moderators)
   
   res <- bind_rows(res, iter_res)
 

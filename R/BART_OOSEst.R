@@ -151,25 +151,32 @@ sbart_ci <- function(train_dat, sbart, pairwise_diff=F) {
     means_cate <- mu1 - mu0
     vars_cate <- vars + vars_cf
     
+    #add to dataframe
+    cis <- train_dat %>%
+      mutate(mean = means_cate,
+             var = vars_cate,
+             lower = means_cate - 2*sqrt(vars_cate),
+             upper = means_cate + 2*sqrt(vars_cate))
+    
   } else {
     
     #get pairwise differences
     w <- train_dat$W
-    pairwise_diffs <- sbart$yhat.train - sbart$yhat.test #some of these are the wrong order
+    w_fac <- ifelse(w == 1, 1, -1)
+    pairwise_diffs <- sweep(sbart$yhat.train - sbart$yhat.test, #some of these are the wrong order
+                            2, w_fac, "*") #multiply by -1 if the person was in control group
     
     #estimate mean and variance
     means_cate <- apply(pairwise_diffs, 2, mean)
-    means_cate <- ifelse(w == 1, means_cate, -means_cate) #fix order by flipping sign of Y0-Y1
-    vars_cate <- apply(pairwise_diffs, 2, var)
+    lower_cate <- apply(pairwise_diffs, 2, quantile, probs=.025)
+    upper_cate <- apply(pairwise_diffs, 2, quantile, probs=.975)
     
+    #add to dataframe
+    cis <- train_dat %>%
+      mutate(mean = means_cate,
+             lower = lower_cate,
+             upper = upper_cate)
   }
-  
-  #add to dataframe
-  cis <- train_dat %>%
-    mutate(mean = means_cate,
-           var = vars_cate,
-           lower = means_cate - 2*sqrt(vars_cate),
-           upper = means_cate + 2*sqrt(vars_cate))
   
   return(cis)
 }
@@ -190,7 +197,8 @@ sbart_target <- function(K, target_dat, sbart, covars, pairwise_diff=F) {
     mutate(W = as.numeric(W == 0))
   
   #predict on target data
-  w_target <- target_dat$W
+  w_target <- new_dat$W
+  w_target_fac <- ifelse(w_target == 1, 1, -1)
   target_pred <- predict(sbart, new_feat)
   target_pred_cf <- predict(sbart, new_feat_cf)
   
@@ -219,22 +227,18 @@ sbart_target <- function(K, target_dat, sbart, covars, pairwise_diff=F) {
     
   } else {
     
-    pairwise_diffs <- target_pred - target_pred_cf #some of these are the wrong order
-    means_cate_target <- vars_cate_target <- lower_cate_target <- upper_cate_target <- c()
+    pairwise_diffs <- sweep(target_pred - target_pred_cf, #some of these are the wrong order
+                            2, w_target_fac, "*") #multiply by -1 if the person was in control group
+    means_cate_target <- lower_cate_target <- upper_cate_target <- c()
     for (i in 1:nrow(target_dat)) {
       inds <- (K*(i-1)+1):(K*i)
       pairwise_diffs_inds <- c(pairwise_diffs[,inds])
       
-      mean_cate_target <- mean(pairwise_diffs_inds)
-      mean_cate_target <- ifelse(w_target[i] == 1, mean_cate_target, -mean_cate_target) #fix order by flipping sign of Y0-Y1
-      var_cate_target <- var(pairwise_diffs_inds)
-      
-      means_cate_target <- c(means_cate_target, mean_cate_target)
-      vars_cate_target <- c(vars_cate_target, var_cate_target)
+      means_cate_target <- c(means_cate_target, mean(pairwise_diffs_inds))
       lower_cate_target <- c(lower_cate_target, 
-                             mean_cate_target - 2*sqrt(var_cate_target))
+                             quantile(pairwise_diffs_inds, probs=.025))
       upper_cate_target <- c(upper_cate_target, 
-                             mean_cate_target + 2*sqrt(var_cate_target))
+                             quantile(pairwise_diffs_inds, probs=.975))
     }
     
   }
@@ -242,7 +246,6 @@ sbart_target <- function(K, target_dat, sbart, covars, pairwise_diff=F) {
   #add to target data
   cis <- target_dat %>%
     mutate(mean = means_cate_target,
-           var = vars_cate_target,
            lower = lower_cate_target,
            upper = upper_cate_target)
   
