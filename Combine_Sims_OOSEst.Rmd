@@ -17,13 +17,13 @@ library(tidyverse)
 
 ```{r, eval=F}
 #read in all files
-setwd("~/Desktop/Cluster/OOSEst/30Aug2023")
+setwd("~/Desktop/Cluster/OOSEst/26Sep2023")
 files <- list.files(pattern=".Rdata")
 
 all <- c()
 for (i in 1:length(files)) {
   load(file = files[i])
-  all <- bind_rows(all, results)
+  all <- bind_rows(all, results[["all_res"]])
   print(i)
 }
 
@@ -33,16 +33,15 @@ length(unique(seeds)) == length(files) #making sure every iteration has a unique
 
 nrow(all) #to make sure every iteration ran
 setwd("~/Dropbox/Moderation/Out of Sample Prediction/Data")
-saveRDS(all, "all_results_30Aug2023.RDS")
+saveRDS(all, "all_results_26Sep2023.RDS")
 ```
 
 ```{r, message=F, warning=F}
-all <- readRDS("Data/all_results_30Aug2023.RDS")
+all <- readRDS("Data/all_results_26Sep2023.RDS")
 
 #long form for boxplot
 all_long <- all %>%
-  dplyr::select(-c(mem_res, default_res, mem_a_res, default_a_res)) %>%
-  pivot_longer(cols = manual_res:rand_a_res,
+  pivot_longer(cols = manual_res:tb_res,
                names_to = "Method",
                values_to = "Value") %>%
   mutate(scenario = paste(covars_fix, covars_rand, lin, eps_study_m,
@@ -51,27 +50,87 @@ all_long <- all %>%
 
 #average across iterations
 all_avg <- all %>%
-  dplyr::select(-mem_res, default_res, mem_a_res, default_a_res) %>%
   group_by(Metric, K, n_mean, n_sd, n_target, covars_fix, covars_rand,
            lin, eps_study_m, eps_study_tau, eps_study_inter,
            distribution, target_dist) %>%
-  summarise(across(manual_res:rand_a_res, list(mean = mean, sd = sd)),
+  summarise(across(manual_res:tb_res, list(mean = mean, sd = sd)),
             n_iter = n())
 summary(all_avg$n_iter) #check iterations
 ```
 
+## Age Moderator, Same Target Distribution, Same Training Distributions
+
+### Target CI Coverage
+
+```{r, fig.height=7, fig.width=10}
+#age, same target distribution
+all_long %>%
+  filter(Metric == "target_coverage", covars_fix == "age",
+         target_dist == "same", distribution == "same") %>%
+  ggplot(aes(x=sds, y=Value)) +
+  geom_boxplot(aes(color = Method)) +
+  geom_hline(aes(yintercept=.95), linetype = "dashed") +
+  facet_wrap(~lin) +
+  scale_y_continuous(labels = scales::percent, limits = c(.75, 1)) +
+  labs(color="Method") +
+  theme(axis.text.x = element_text(angle=90),
+        text = element_text(size=12)) +
+  xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent in Target Sample") +
+  ggtitle("Same Target Distribution")
+```
+
+### Training CI Coverage
+
+```{r, fig.height=7, fig.width=10}
+#age, same target distribution
+all_long %>%
+  filter(Metric == "train_coverage", covars_fix == "age",
+         target_dist == "same", distribution == "same") %>%
+  ggplot(aes(x=sds, y=Value)) +
+  geom_boxplot(aes(color = Method)) +
+  geom_hline(aes(yintercept=.95), linetype = "dashed") +
+  facet_wrap(~lin) +
+  scale_y_continuous(labels = scales::percent, limits = c(.75, 1)) +
+  labs(color="Method") +
+  theme(axis.text.x = element_text(angle=90),
+        text = element_text(size=12)) +
+  xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent in Training Sample") +
+  ggtitle("Same Target Distribution")
+```
+
+### Target CI Length
+
+```{r, fig.height=7, fig.width=10}
+#age, same target distribution
+all_long %>%
+  filter(Metric == "target_length", covars_fix == "age",
+         target_dist == "same", distribution == "same") %>%
+  ggplot(aes(x=sds, y=Value)) +
+  geom_boxplot(aes(color = Method)) +
+  facet_wrap(~lin) + ylim(0,10) +
+  labs(color="Method") +
+  theme(axis.text.x = element_text(angle=90),
+        text = element_text(size=12)) +
+  xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
+  ylab("CI Length in Target Sample") +
+  ggtitle("Same Target Distribution")
+```
+
 ## Target CI Coverage
 
-```{r}
+```{r, fig.height=10}
 #age, same target distribution
 all_long %>%
   filter(Metric == "target_coverage", covars_fix == "age",
          target_dist == "same") %>%
   ggplot(aes(x=sds, y=Value)) +
   geom_boxplot(aes(color = Method)) +
+  geom_hline(aes(yintercept=.95), linetype = "dashed") +
   facet_grid(lin~distribution) +
   scale_y_continuous(labels = scales::percent, limits = c(.75, 1)) +
-  labs(color="Single-Study Method") + xlab("Aggregation Method") +
+  labs(color="Method") +
   theme(axis.text.x = element_text(angle=90),
         text = element_text(size=12)) +
   xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
@@ -86,9 +145,10 @@ all_long %>%
          target_dist == "different") %>%
   ggplot(aes(x=sds, y=Value)) +
   geom_boxplot(aes(color = Method)) +
+  geom_hline(aes(yintercept=.95), linetype = "dashed") +
   facet_grid(lin~distribution) +
   scale_y_continuous(labels = scales::percent, limits = c(.75, 1)) +
-  labs(color="Single-Study Method") + xlab("Aggregation Method") +
+  labs(color="Method") +
   theme(axis.text.x = element_text(angle=90),
         text = element_text(size=12)) +
   xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
@@ -103,64 +163,53 @@ all_long %>%
          target_dist == "same") %>%
   ggplot(aes(x=sds, y=Value)) +
   geom_boxplot(aes(color = Method)) +
+  geom_hline(aes(yintercept=.95), linetype = "dashed") +
   facet_grid(lin~distribution) +
   scale_y_continuous(labels = scales::percent, limits = c(.75, 1)) +
-  labs(color="Single-Study Method") + xlab("Aggregation Method") +
+  labs(color="Method") +
   theme(axis.text.x = element_text(angle=90),
         text = element_text(size=12)) +
   xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
   ylab("CI Coverage Percent in Target Sample") +
-  ggtitle("Same Target Distribution")
-```
-
-
-## OLD
-
-```{r, eval = F}
-#same and different target dist on one plot
-all_long %>%
-  filter(Metric == "target_coverage",
-         eps_study_m == 0.05,
-         model != "GLHT") %>%
-  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
-  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
-  facet_grid(distribution~target_dist) +
-  scale_y_continuous(labels = scales::percent) +
-  theme(axis.text.x = element_text(angle = 90)) +
-  xlab("Variability of Trt and Trt*Age Coefficients") +
-  ylab("CI Coverage Percent in Target Sample") +
-  ggtitle("Low Variability of Intercept") +
-  labs(color="Meta-Analysis", shape="Method")
-
-all_long %>%
-  filter(Metric == "target_coverage",
-         eps_study_m == 1,
-         model != "GLHT") %>%
-  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
-  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
-  facet_grid(distribution~target_dist) +
-  scale_y_continuous(labels = scales::percent) +
-  theme(axis.text.x = element_text(angle = 90)) +
-  xlab("Variability of Trt and Trt*Age Coefficients") +
-  ylab("CI Coverage Percent in Target Sample") +
-  ggtitle("High Variability of Intercept")  +
-  labs(color="Meta-Analysis", shape="Method")
+  ggtitle("Same Target Distribution, Age2")
 ```
 
 ```{r, eval=F}
-#plot target coverage
 all_long %>%
-  filter(Metric == "target_coverage") %>%
-  group_by(Method, model, spec) %>%
-  summarise(Mean=mean(Mean)) %>%
-  ggplot(aes(x=model, y=Mean, group=1, color=spec)) +
-  geom_point(size=5) +
-  theme(axis.text.x = element_text(angle=45, hjust=1, vjust=1),
-        plot.margin=margin(10,10,10,30),
-        text = element_text(size=15)) +
-  labs(color="Single-Study Approach") +
-  xlab("Aggregation Approach") +
-  scale_y_continuous(labels = scales::percent)
+  filter(Metric == "target_coverage", covars_fix == "age, madrs",
+         target_dist == "same") %>%
+  ggplot(aes(x=sds, y=Value)) +
+  geom_boxplot(aes(color = Method)) +
+  geom_hline(aes(yintercept=.95), linetype = "dashed") +
+  facet_grid(lin~distribution) +
+  scale_y_continuous(labels = scales::percent, limits = c(.75, 1)) +
+  labs(color="Method") +
+  theme(axis.text.x = element_text(angle=90),
+        text = element_text(size=12)) +
+  xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent in Target Sample") +
+  ggtitle("Same Target Distribution, Age and MADRS")
+```
+
+
+## Training CI Coverage
+
+```{r}
+#age, same target distribution
+all_long %>%
+  filter(Metric == "train_coverage", covars_fix == "age",
+         target_dist == "same") %>%
+  ggplot(aes(x=sds, y=Value)) +
+  geom_boxplot(aes(color = Method)) +
+  geom_hline(aes(yintercept=.95), linetype = "dashed") +
+  facet_grid(lin~distribution) +
+  scale_y_continuous(labels = scales::percent, limits = c(.75, 1)) +
+  labs(color="Method") +
+  theme(axis.text.x = element_text(angle=90),
+        text = element_text(size=12)) +
+  xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent in Training Sample") +
+  ggtitle("Same Target Distribution")
 ```
 
 ### CI Coverage by Variance
@@ -197,7 +246,7 @@ all_long %>%
   geom_boxplot(aes(color = Method)) +
   ylim(0, 10) +
   facet_grid(lin~distribution) +
-  labs(color="Single-Study Method") + xlab("Aggregation Method") +
+  labs(color="Method") + 
   theme(axis.text.x = element_text(angle=90),
         text = element_text(size=12)) +
   xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
@@ -215,10 +264,10 @@ NEED TO UPDATE (9/6)
 all_long %>%
   filter(Metric == "target_mse",
          target_dist == "same",
-         eps_study_m == 1) %>%
-  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
-  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
-  facet_grid(distribution~eps_study_m, scales='free') +
+         covars_fix == "age") %>%
+  ggplot(aes(x=sds, y=Value, group=Method, color=Method)) +
+  geom_boxplot() + ylim(0,5) +
+  facet_grid(lin~distribution) +
   theme(axis.text.x = element_text(angle = 90)) +
   xlab("Variability of Trt and Trt*Age Coefficients") +
   ylab("MSE in Target Sample") +
@@ -227,10 +276,11 @@ all_long %>%
 #different target dist
 all_long %>%
   filter(Metric == "target_mse",
-         target_dist == "different") %>%
-  ggplot(aes(x=eps, y=Mean, group=Method, color=spec)) +
-  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
-  facet_grid(distribution~eps_study_m, scales='free') +
+         target_dist == "different",
+         covars_fix == "age") %>%
+  ggplot(aes(x=sds, y=Value, group=Method, color=Method)) +
+  geom_boxplot() + ylim(0,5) +
+  facet_grid(lin~distribution) +
   theme(axis.text.x = element_text(angle = 90)) +
   xlab("Variability of Trt and Trt*Age Coefficients") +
   ylab("MSE in Target Sample") +

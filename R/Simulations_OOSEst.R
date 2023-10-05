@@ -7,6 +7,7 @@ library(multcomp)
 library(MASS)
 library(grf)
 library(dbarts)
+library(fastDummies)
 
 source("R/MDD_Generation_OOSEst.R")
 source("R/MA_OOSEst.R")
@@ -44,7 +45,7 @@ mods <- list(list(covars_fix="age", covars_rand="age", lin=T,
                list(covars_fix="age", covars_rand="age", lin=F,
                     eps_study_m=1, eps_study_tau=0.5, eps_study_inter=0.05),
                list(covars_fix="age", covars_rand="age", lin=F,
-                    eps_study_m=1, eps_study_tau=0.5, eps_study_inter=0.5))
+                    eps_study_m=1, eps_study_tau=1, eps_study_inter=0.5))
 
 settings <- expand.grid(moderators = c(1:length(mods)),
                         distribution = c("same", "varying_madrs", "separate_age"),
@@ -73,7 +74,7 @@ results <- compare_oos(K=K, n_mean=n_mean, n_sd=n_sd, n_target=n_target, covars_
                        covars_rand=covars_rand, lin=lin, eps_study_m=eps_study_m, eps_study_tau=eps_study_tau, 
                        eps_study_inter=eps_study_inter, distribution=distribution, target_dist=target_dist)
 save(results, file=paste(paste("results",seed,iteration,K,n_mean,n_sd,n_target,"modset",moderators,
-                               lin,eps_study_m,eps_study_tau,eps_study_inter,distribution,
+                               lin,eps_study_m,eps_study_tau,mean(eps_study_inter),distribution,
                                target_dist,sep = "_"),
                          ".Rdata",sep=""))
 
