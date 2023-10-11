@@ -17,7 +17,7 @@ library(tidyverse)
 
 ```{r, eval=F}
 #read in all files
-setwd("~/Desktop/Cluster/OOSEst/26Sep2023")
+setwd("~/Desktop/Cluster/OOSEst/6Oct2023")
 files <- list.files(pattern=".Rdata")
 
 all <- c()
@@ -33,15 +33,18 @@ length(unique(seeds)) == length(files) #making sure every iteration has a unique
 
 nrow(all) #to make sure every iteration ran
 setwd("~/Dropbox/Moderation/Out of Sample Prediction/Data")
-saveRDS(all, "all_results_26Sep2023.RDS")
+saveRDS(all, "all_results_6Oct2023.RDS")
 ```
 
 ```{r, message=F, warning=F}
-all <- readRDS("Data/all_results_26Sep2023.RDS")
+all <- readRDS("Data/all_results_6Oct2023.RDS")
 
 #long form for boxplot
 all_long <- all %>%
-  pivot_longer(cols = manual_res:tb_res,
+  rename(MA = manual_res, MA_Inc = manual_res_wrong,
+         HCF = cf_res, ACF = cf_a_res,
+         SBART = sb_res, TBART = tb_res) %>%
+  pivot_longer(cols = MA:TBART,
                names_to = "Method",
                values_to = "Value") %>%
   mutate(scenario = paste(covars_fix, covars_rand, lin, eps_study_m,
@@ -49,13 +52,32 @@ all_long <- all %>%
          sds = paste(eps_study_m, eps_study_tau, eps_study_inter, sep = "_"))
 
 #average across iterations
-all_avg <- all %>%
+all_sum <- all %>%
+  rename(MA = manual_res, MA_Inc = manual_res_wrong,
+         HCF = cf_res, ACF = cf_a_res,
+         SBART = sb_res, TBART = tb_res) %>%
   group_by(Metric, K, n_mean, n_sd, n_target, covars_fix, covars_rand,
            lin, eps_study_m, eps_study_tau, eps_study_inter,
            distribution, target_dist) %>%
-  summarise(across(manual_res:tb_res, list(mean = mean, sd = sd)),
+  summarise(across(MA:TBART, list(mean = mean, sd = sd)),
             n_iter = n())
 summary(all_avg$n_iter) #check iterations
+
+#average in long form
+all_avg_long <- all %>%
+  rename(MA = manual_res, MA_Inc = manual_res_wrong,
+         HCF = cf_res, ACF = cf_a_res,
+         SBART = sb_res, TBART = tb_res) %>%
+  group_by(Metric, K, n_mean, n_sd, n_target, covars_fix, covars_rand,
+           lin, eps_study_m, eps_study_tau, eps_study_inter,
+           distribution, target_dist) %>%
+  summarise(across(MA:TBART, mean)) %>%
+  pivot_longer(cols = MA:TBART,
+               names_to = "Method",
+               values_to = "Value") %>%
+  mutate(scenario = paste(covars_fix, covars_rand, lin, eps_study_m,
+                          eps_study_tau, eps_study_inter, sep = "_"),
+         sds = paste(eps_study_m, eps_study_tau, eps_study_inter, sep = "_"))
 ```
 
 ## Age Moderator, Same Target Distribution, Same Training Distributions
@@ -79,6 +101,25 @@ all_long %>%
   ylab("CI Coverage Percent in Target Sample") +
   ggtitle("Same Target Distribution")
 ```
+
+```{r}
+# points version
+all_avg_long %>%
+  filter(Metric == "target_coverage", covars_fix == "age",
+         target_dist == "same", distribution == "same") %>%
+  ggplot(aes(x=sds, y=Value)) +
+  geom_point(aes(color = Method)) +
+  geom_hline(aes(yintercept=.95), linetype = "dashed") +
+  facet_wrap(~lin) +
+  scale_y_continuous(labels = scales::percent, limits = c(.75, 1)) +
+  labs(color="Method") +
+  theme(axis.text.x = element_text(angle=90),
+        text = element_text(size=12)) +
+  xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent in Target Sample") +
+  ggtitle("Same Target Distribution")
+```
+
 
 ### Training CI Coverage
 

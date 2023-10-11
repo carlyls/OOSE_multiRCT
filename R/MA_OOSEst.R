@@ -72,8 +72,8 @@ manual_pi_train <- function(df, res, K, covars_fix, covars_rand) {
   var_theta <- diag(vcov_theta) #Var(theta-hat)
   
   #prediction interval
-  pred_lower <- mean_theta + 1.96*sqrt(var_theta)
-  pred_upper <- mean_theta - 1.96*sqrt(var_theta)
+  pred_lower <- mean_theta - 1.96*sqrt(var_theta)
+  pred_upper <- mean_theta + 1.96*sqrt(var_theta)
   
   df <- df %>%
     mutate(lower = pred_lower,
