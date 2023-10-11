@@ -9,10 +9,10 @@ source("R/Comparing_OOSEst.R")
 
 
 # set up parameters
-K <- 10
-n_mean <- 200
+K <- 5
+n_mean <- 500
 n_sd <- 0
-n_target <- 100
+n_target <- 200
 honesty <- T
 covars_fix <- "age"
 covars_rand <- "age"
@@ -78,27 +78,27 @@ for (i in 1:nrow(settings)) {
   rm(sbart)
   
   #calculate mean and CIs for individuals and assess accuracy
-  sb_res <- c(assess_interval(sb_train, sb_target), 
-              avg_train_var = mean(sb_train$var), 
-              avg_target_var = mean(sb_target$var))
-  sb_res_p <- c(assess_interval(sb_train_p, sb_target_p), 
-                avg_train_var = mean(sb_train_p$var), 
-                avg_target_var = mean(sb_target_p$var))
+  sb_res <- assess_interval(sb_train, sb_target)
+  sb_res_p <- assess_interval(sb_train_p, sb_target_p)
   
   #report results
   iter_res <- cbind(sb_res, sb_res_p) %>%
     data.frame() %>%
     rownames_to_column("Metric") %>%
-    mutate(moderators = moderators)
+    mutate(moderators = moderators,
+           iteration = iteration)
   
   res <- bind_rows(res, iter_res)
 
 }
-#saveRDS(res, "BART_vartest.RDS")
+saveRDS(res, "Data/BART_vartest_5Oct2023.RDS")
 
 #check results
+res <- readRDS("Data/BART_vartest_5Oct2023.RDS") %>%
+  filter(grepl("bias", Metric) == F)
 #View(res)
-colnames(res) <- c("Metric", "S_NonPair", "S_Pair")
+colnames(res) <- c("Metric", "S_NonPair", "S_Pair",
+                   "Moderators", "Iteration")
 
 #mse - should always be equal
 mse <- filter(res, grepl("mse", Metric)==T)
@@ -109,9 +109,10 @@ res %>%
   filter(grepl("coverage", Metric)==T) %>%
   pivot_longer(cols=c(S_NonPair, S_Pair), names_to = "Method", values_to = "Coverage") %>%
   ggplot(aes(x=Metric, color=Method, y=Coverage)) +
-  geom_boxplot()
+  geom_boxplot() +
+  facet_wrap(~Moderators)
 
-#variance
+#bias
 res %>%
   filter(grepl("var", Metric)==T) %>%
   pivot_longer(cols=c(S_NonPair, S_Pair), names_to = "Method", values_to = "Variance") %>%

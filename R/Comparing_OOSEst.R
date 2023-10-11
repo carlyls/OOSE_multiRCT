@@ -12,6 +12,10 @@
 #check results for all methods ####
 assess_interval <- function(train_dat, target_dat) {
   
+  #calculate mean absolute bias
+  train_bias <- mean(abs(train_dat$mean - train_dat$tau))
+  target_bias <- mean(abs(target_dat$mean - target_dat$tau))
+  
   #calculate mse
   train_mse <- mean((train_dat$mean - train_dat$tau)^2)
   target_mse <- mean((target_dat$mean - target_dat$tau)^2)
@@ -28,7 +32,8 @@ assess_interval <- function(train_dat, target_dat) {
   train_significance <- sum(sign(train_dat$lower) == sign(train_dat$upper))/nrow(train_dat)
   target_significance <- sum(sign(target_dat$lower) == sign(target_dat$upper))/nrow(target_dat)
   
-  return(c(train_mse = train_mse, target_mse = target_mse,
+  return(c(train_bias = train_bias, target_bias = target_bias,
+           train_mse = train_mse, target_mse = target_mse,
            train_coverage = train_coverage, target_coverage = target_coverage,
            train_length = train_length, target_length = target_length,
            train_significance = train_significance, target_significance = target_significance))
