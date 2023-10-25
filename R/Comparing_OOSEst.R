@@ -180,36 +180,40 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   #S-BART credible interval - target
   sb_target <- sbart_target(K, target_dat, sbart, covars)
   
+  #S-BART credible interval - target option 2
+  sb_target_rand <- sbart_rand(K, target_dat, sbart, covars)
+  
   rm(sbart)
   
   #calculate mean and CIs for individuals and assess accuracy
   sb_res <- assess_interval(sb_train, sb_target)
+  sb_res_rand <- assess_interval(sb_train, sb_target_rand)
   
   
   ## BART: T-learner
   #use covariates from above
-  m1_setup <- tlearn_setup(train_dat, covars, w=1)
-  m0_setup <- tlearn_setup(train_dat, covars, w=0)
+  # m1_setup <- tlearn_setup(train_dat, covars, w=1)
+  # m0_setup <- tlearn_setup(train_dat, covars, w=0)
   
   #run bart for m1
-  tbart1 <- dbarts::bart(x.train = as.matrix(m1_setup[["feat"]]), y.train = m1_setup[["y"]],
-                         x.test = as.matrix(m0_setup[["feat"]]), keeptrees = T)
+  # tbart1 <- dbarts::bart(x.train = as.matrix(m1_setup[["feat"]]), y.train = m1_setup[["y"]],
+                         # x.test = as.matrix(m0_setup[["feat"]]), keeptrees = T)
   
   #run bart for m0
-  tbart0 <- dbarts::bart(x.train = as.matrix(m0_setup[["feat"]]), y.train = m0_setup[["y"]],
-                         x.test = as.matrix(m1_setup[["feat"]]), keeptrees = T)
+  # tbart0 <- dbarts::bart(x.train = as.matrix(m0_setup[["feat"]]), y.train = m0_setup[["y"]],
+                         # x.test = as.matrix(m1_setup[["feat"]]), keeptrees = T)
   
   #T-BART credible interval - training
-  tb_train <- tbart_ci(train_dat, tbart1, tbart0)
+  # tb_train <- tbart_ci(train_dat, tbart1, tbart0)
   
   #T-BART credible interval - target
-  tb_target <- tbart_target(K, target_dat, tbart1, tbart0, covars)
+  # tb_target <- tbart_target(K, target_dat, tbart1, tbart0, covars)
   
-  rm(tbart1)
-  rm(tbart0)
+  # rm(tbart1)
+  # rm(tbart0)
   
   #calculate mean and CIs for individuals and assess accuracy
-  tb_res <- assess_interval(tb_train, tb_target)
+  # tb_res <- assess_interval(tb_train, tb_target)
   
   
   ## Save results
@@ -222,7 +226,7 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
                        distribution=distribution, target_dist=target_dist)
   
   #data frame of results
-  all_res <- cbind(manual_res, manual_res_wrong, cf_res, cf_a_res, cf_res_rand, cf_a_res_rand, sb_res, tb_res) %>%
+  all_res <- cbind(manual_res, manual_res_wrong, cf_res, cf_a_res, cf_res_rand, cf_a_res_rand, sb_res, sb_res_rand) %>%
     data.frame() %>%
     rownames_to_column("Metric") %>%
     cbind(params)
@@ -236,7 +240,7 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
            cf_rand_ipe = cf_target_rand$tau - cf_target_rand$mean,
            cf_rand_a_ipe = cf_target_rand_a$tau - cf_target_rand_a$mean,
            sb_ipe = sb_target$tau - sb_target$mean,
-           tb_ipe = tb_target$tau - tb_target$mean)
+           sb_rand_ipe = sb_target_rand$tau - sb_target_rand$mean)
   
   #save target dataset individual results
   target_res <- target_metrics(manual_target, "MA") %>%
@@ -246,8 +250,7 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
     bind_rows(target_metrics(cf_target_a, "ACF")) %>%
     bind_rows(target_metrics(cf_target_rand_a, "ACF_Rand")) %>%
     bind_rows(target_metrics(sb_target, "SBART")) %>%
-    bind_rows(target_metrics(sb_target_rand, "SBART_Rand")) %>%
-    bind_rows(target_metrics(tb_target, "TBART"))
+    bind_rows(target_metrics(sb_target_rand, "SBART_Rand"))
   
   
   return(list(all_res=all_res, ipe=ipe))

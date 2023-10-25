@@ -182,7 +182,58 @@ sbart_ci <- function(train_dat, sbart, pairwise_diff=F) {
 }
 
 ## S-learner for target data
-sbart_target <- function(K, target_dat, sbart, covars, pairwise_diff=F) {
+#between and within study variance
+sbart_target <- function(K, target_dat, sbart, covars) {
+  
+  #set up one row per study for all rows of target data
+  new_dat <- target_dat %>%
+    slice(rep(1:n(), each=K)) %>%
+    mutate(S = rep(1:K, nrow(target_dat)))
+  new_feat <- new_dat %>%
+    dplyr::select(c(W, S, all_of(covars))) %>%
+    fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
+  
+  #define counterfactual
+  new_feat_cf <- new_feat %>%
+    mutate(W = as.numeric(W == 0))
+  
+  #predict on target data
+  target_pred <- predict(sbart, new_feat)
+  target_pred_cf <- predict(sbart, new_feat_cf)
+  
+  #get mean and variance across posterior for each person-study combination
+  new_dat <- new_dat %>%
+    mutate(mean_obs = apply(target_pred, 2, mean),
+           mean_cf = apply(target_pred_cf, 2, mean),
+           var_obs = apply(target_pred, 2, var),
+           var_cf = apply(target_pred_cf, 2, var),
+           w_fac_new = ifelse(W == 0, -1, 1),
+           mean_cate = w_fac_new*(mean_obs - mean_cf),
+           var_cate = var_obs + var_cf)
+  
+  #average across studies
+  cis <- new_dat %>%
+    group_by(W, sex, smstat, weight, age, age2, madrs, Y, tau) %>%
+    summarise(mean = mean(mean_cate),
+              var_within = mean(var_cate),
+              var_between = var(mean_cate),
+              n_K = n()) %>%
+    mutate(var_tot = var_within + var_btwn,
+           sd = sqrt(var_tot),
+           lower = mean - qt(.975, K-2)*sd,
+           upper = mean + qt(.975, K-2)*sd)
+  
+  #reorder to match target data
+  cis_ord <- target_dat %>%
+    left_join(cis, by = c("W","sex","smstat","weight","age",
+                          "age2","madrs","Y","tau"))
+  
+  return(cis_ord)
+}
+
+
+#original approach: do not decompose variance
+sbart_rand <- function(K, target_dat, sbart, covars, pairwise_diff=F) {
   
   #set up one row per study for all rows of target data
   new_dat <- target_dat %>%
