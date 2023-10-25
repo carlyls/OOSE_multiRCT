@@ -109,8 +109,8 @@ manual_pi_target <- function(df, res, K, covars_fix, covars_rand) {
   var_theta <- diag(vcov_theta) #Var(theta-hat)
   
   #prediction interval
-  pred_lower <- mean_theta + qt(.025, K-2)*sqrt(var_theta)
-  pred_upper <- mean_theta - qt(.025, K-2)*sqrt(var_theta)
+  pred_lower <- mean_theta - qt(.975, K-2)*sqrt(var_theta)
+  pred_upper <- mean_theta + qt(.975, K-2)*sqrt(var_theta)
   
   df <- df %>%
     mutate(lower = pred_lower,
