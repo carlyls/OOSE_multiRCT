@@ -61,7 +61,7 @@ sample_dist <- function(k, n, Sigma, eps_study_m, eps_study_tau,
 #main function
 gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", covars_rand="age",
                      lin=T, eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05,
-                     distribution="same", target_dist="same") {
+                     distribution="same") {
   
   #training data
   train_dat <- data.frame()
@@ -85,28 +85,9 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
     
   }
   
-  #target data
-  if (target_dist == "same") {
-    target_dat <- train_dat[sample(nrow(train_dat), n_target),] %>%
-      dplyr::select(-S, -contains("eps_"))
-    
-  } else if (target_dist == "upweight") {
-    train_weight <- train_dat %>%
-      mutate(study_weight = ifelse(S %in% c(3, 5), 3, 1))
-    target_dat <- train_weight[sample(nrow(train_weight), n_target, prob=train_weight$study_weight),] %>%
-      dplyr::select(-study_weight, -S, -contains("eps_"))
-    
-  } else if (target_dist == "different") {
-    target_mean <- c(age=30, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=25)
-    target_dat <- MASS::mvrnorm(n=n_target, mu=target_mean, Sigma=Sigma) %>%
-      as.data.frame() %>%
-      mutate(sex = ifelse(sex > 1-0.6784, 1, 0),
-             smstat = ifelse(smstat > 1-0.3043, 1, 0),
-             age2 = age^2,
-             eps = rnorm(n=n_target, mean=0, sd=.05),
-             W = rbinom(n=n_target, size=1, prob=.5))
-    
-  }
+  #target data  - REPLACE WITH THE SAME DATASET EVERY TIME
+  target_dat <- train_dat[sample(nrow(train_dat), n_target),] %>%
+    dplyr::select(-S, -contains("eps_"))
   
   #define random slopes for moderators in target sample
   eps_inter_target <- matrix(nrow=n_target, ncol=length(covars_rand))

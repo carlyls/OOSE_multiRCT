@@ -49,7 +49,6 @@ mods <- list(list(covars_fix="age", covars_rand="age", lin=T,
 
 settings <- expand.grid(moderators = c(1:length(mods)),
                         distribution = c("same", "varying_madrs", "separate_age"),
-                        target_dist = c("same", "different"),
                         iteration = c(1:100))
 
 #set row of settings and define parameters
@@ -64,7 +63,6 @@ eps_study_inter <- mods[[moderators]]$eps_study_inter
 lin <- mods[[moderators]]$lin
 
 distribution <- settings$distribution[i]
-target_dist <- settings$target_dist[i]
 iteration <- settings$iteration[i]
 seed <- i
 
@@ -72,9 +70,8 @@ seed <- i
 set.seed(seed)
 results <- compare_oos(K=K, n_mean=n_mean, n_sd=n_sd, n_target=n_target, covars_fix=covars_fix,
                        covars_rand=covars_rand, lin=lin, eps_study_m=eps_study_m, eps_study_tau=eps_study_tau, 
-                       eps_study_inter=eps_study_inter, distribution=distribution, target_dist=target_dist)
+                       eps_study_inter=eps_study_inter, distribution=distribution)
 save(results, file=paste(paste("results",seed,iteration,K,n_mean,n_sd,n_target,"modset",moderators,
-                               lin,eps_study_m,eps_study_tau,mean(eps_study_inter),distribution,
-                               target_dist,sep = "_"),
+                               lin,eps_study_m,eps_study_tau,mean(eps_study_inter),distribution,sep = "_"),
                          ".Rdata",sep=""))
 
