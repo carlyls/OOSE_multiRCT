@@ -12,6 +12,7 @@
 #check results for all methods ####
 assess_interval <- function(train_dat, target_dat) {
   
+  ## within-iteration results
   #calculate mean absolute bias
   train_bias <- mean(abs(train_dat$mean - train_dat$tau))
   target_bias <- mean(abs(target_dat$mean - target_dat$tau))
@@ -38,6 +39,20 @@ assess_interval <- function(train_dat, target_dat) {
            train_length = train_length, target_length = target_length,
            train_significance = train_significance, target_significance = target_significance))
   
+}
+
+target_metrics <- function(target_dat, method) {
+  
+  #add diagnostics for each row of target sample according to method
+  target_dat <- target_dat %>%
+    mutate(method = method,
+           coverage = as.numeric(tau >= lower & tau <= upper),
+           bias = mean - tau,
+           abs_bias = abs(mean - tau),
+           length = upper - lower,
+           significant = as.numeric(sign(lower) == sign(upper)))
+  
+  return(target_dat)
 }
 
 
@@ -222,6 +237,17 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
            cf_rand_a_ipe = cf_target_rand_a$tau - cf_target_rand_a$mean,
            sb_ipe = sb_target$tau - sb_target$mean,
            tb_ipe = tb_target$tau - tb_target$mean)
+  
+  #save target dataset individual results
+  target_res <- target_metrics(manual_target, "MA") %>%
+    bind_rows(target_metrics(manual_target_wrong, "MA_Inc")) %>%
+    bind_rows(target_metrics(cf_target, "HCF")) %>%
+    bind_rows(target_metrics(cf_target_rand, "HCF_Rand")) %>%
+    bind_rows(target_metrics(cf_target_a, "ACF")) %>%
+    bind_rows(target_metrics(cf_target_rand_a, "ACF_Rand")) %>%
+    bind_rows(target_metrics(sb_target, "SBART")) %>%
+    bind_rows(target_metrics(sb_target_rand, "SBART_Rand")) %>%
+    bind_rows(target_metrics(tb_target, "TBART"))
   
   
   return(list(all_res=all_res, ipe=ipe))
