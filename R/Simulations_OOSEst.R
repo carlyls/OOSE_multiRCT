@@ -49,7 +49,7 @@ mods <- list(list(covars_fix="age", covars_rand="age", lin=T,
 
 settings <- expand.grid(moderators = c(1:length(mods)),
                         distribution = c("same", "varying_madrs", "separate_age"),
-                        target_dist = c("same", "different"),
+                        target_dist = c("same"),
                         iteration = c(1:100))
 
 #set row of settings and define parameters

@@ -253,6 +253,6 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
     bind_rows(target_metrics(sb_target_rand, "SBART_Rand"))
   
   
-  return(list(all_res=all_res, ipe=ipe))
+  return(list(all_res=all_res, ipe=ipe, target_res=target_res))
 }
 

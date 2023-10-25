@@ -216,7 +216,7 @@ sbart_target <- function(K, target_dat, sbart, covars) {
     group_by(W, sex, smstat, weight, age, age2, madrs, Y, tau) %>%
     summarise(mean = mean(mean_cate),
               var_within = mean(var_cate),
-              var_between = var(mean_cate),
+              var_btwn = var(mean_cate),
               n_K = n()) %>%
     mutate(var_tot = var_within + var_btwn,
            sd = sqrt(var_tot),
@@ -270,9 +270,9 @@ sbart_rand <- function(K, target_dat, sbart, covars, pairwise_diff=F) {
       means_cate_target <- c(means_cate_target, mean_cate_target)
       vars_cate_target <- c(vars_cate_target, var_cate_target)
       lower_cate_target <- c(lower_cate_target, 
-                             mean_cate_target - 1.96*sqrt(var_cate_target))
+                             mean_cate_target - qt(.975, K-2)*sqrt(var_cate_target))
       upper_cate_target <- c(upper_cate_target, 
-                             mean_cate_target + 1.96*sqrt(var_cate_target))
+                             mean_cate_target + qt(.975, K-2)*sqrt(var_cate_target))
     }
     
   } else {
