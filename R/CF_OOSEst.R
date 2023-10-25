@@ -59,47 +59,46 @@ cf_pi_target <- function(K, target_dat, tau_forest, covars) {
 }
 
 
+# Random imputation
+impute_rand <- function(N, K, target_dat, tau_forest, covars) {
+
+  #assign study
+  new_dat <- target_dat %>%
+    slice(rep(1:n(), each=N)) %>%
+    mutate(S = sample(1:K, nrow(target_dat)*N, replace = T),
+           tau_hat = NA)
+  new_feat <- new_dat %>%
+    dplyr::select(c(S, all_of(covars))) %>%
+    fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
+
+  #predict CATE
+  target_pred <- predict(tau_forest, newdata = new_feat, estimate.variance = T)
+  for (i in 1:nrow(target_pred)) {
+    new_dat$tau_hat[i] <- rnorm(1, mean=target_pred$predictions[i],
+                                sd = sqrt(target_pred$variance.estimates[i]))
+  }
+
+  #create confidence intervals
+  cis <- new_dat %>%
+    group_by(sex, smstat, weight, age, age2, madrs, tau) %>%
+    summarise(mean = mean(tau_hat),
+              sd = sd(tau_hat),
+              q2.5 = quantile(tau_hat, .025),
+              q97.5 = quantile(tau_hat, .975)) %>%
+    mutate(lower = mean - 1.96*sd,
+           upper = mean + 1.96*sd)
+
+  #reorder to match target data
+  cis_ord <- target_dat %>%
+    left_join(cis, by = c("sex","smstat","weight","age",
+                          "age2","madrs","tau"))
+
+  return(cis_ord)
+}
 
 
 
 
-#### OPTION 1: COMPLETELY RANDOM ####
-
-# impute_rand <- function(N, K, target_dat, tau_forest, covars) {
-#   
-#   #assign study
-#   new_dat <- target_dat %>%
-#     slice(rep(1:n(), each=N)) %>%
-#     mutate(S = sample(1:K, nrow(target_dat)*N, replace = T),
-#            tau_hat = NA)
-#   new_feat <- new_dat %>%
-#     dplyr::select(c(S, all_of(covars))) %>%
-#     fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
-#   
-#   #predict CATE
-#   target_pred <- predict(tau_forest, newdata = new_feat, estimate.variance = T)
-#   for (i in 1:nrow(target_pred)) {
-#     new_dat$tau_hat[i] <- rnorm(1, mean=target_pred$predictions[i],
-#                                 sd = sqrt(target_pred$variance.estimates[i]))
-#   }
-#   
-#   #create confidence intervals
-#   cis <- new_dat %>%
-#     group_by(sex, smstat, weight, age, age2, madrs, tau) %>%
-#     summarise(mean = mean(tau_hat),
-#               sd = sd(tau_hat),
-#               q2.5 = quantile(tau_hat, .025),
-#               q97.5 = quantile(tau_hat, .975)) %>%
-#     mutate(lower = mean - 1.96*sd,
-#            upper = mean + 1.96*sd)
-#   
-#   #reorder to match target data
-#   cis_ord <- target_dat %>%
-#     left_join(cis, by = c("sex","smstat","weight","age",
-#                           "age2","madrs","tau"))
-#   
-#   return(cis_ord)
-# }
 
 #### OPTION 2: STUDY MEMBERSHIP MODEL ####
 

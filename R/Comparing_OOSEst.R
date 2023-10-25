@@ -113,11 +113,15 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   
   #causal forest CI - target
   cf_target <- cf_pi_target(K, target_dat, tau_forest, covars)
+  
+  #causal forest CI - target option 2
+  cf_target_rand <- impute_rand(1000, K, target_dat, tau_forest, covars)
 
   rm(tau_forest)
   
   #calculate mean and CIs for individuals and assess accuracy
   cf_res <- assess_interval(cf_train, cf_target)
+  cf_res_rand <- assess_interval(cf_train, cf_target_rand)
   
   
   ## Adaptive Causal Forest
@@ -131,10 +135,14 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
   #causal forest CI - target
   cf_target_a <- cf_pi_target(K, target_dat, tau_forest_a, covars)
   
+  #causal forest CI - target option 2
+  cf_target_rand_a <- impute_rand(1000, K, target_dat, tau_forest_a, covars)
+  
   rm(tau_forest_a)
   
   #calculate mean and CIs for individuals and assess accuracy
   cf_a_res <- assess_interval(cf_train_a, cf_target_a)
+  cf_a_res_rand <- assess_interval(cf_train_a, cf_target_rand_a)
   
   
   ## BART: S-learner
@@ -199,7 +207,7 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
                        distribution=distribution, target_dist=target_dist)
   
   #data frame of results
-  all_res <- cbind(manual_res, manual_res_wrong, cf_res, cf_a_res, sb_res, tb_res) %>%
+  all_res <- cbind(manual_res, manual_res_wrong, cf_res, cf_a_res, cf_res_rand, cf_a_res_rand, sb_res, tb_res) %>%
     data.frame() %>%
     rownames_to_column("Metric") %>%
     cbind(params)
@@ -210,6 +218,8 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
            manual_wrong_ipe = manual_target_wrong$tau - manual_target_wrong$mean,
            cf_ipe = cf_target$tau - cf_target$mean,
            cf_a_ipe = cf_target_a$tau - cf_target_a$mean,
+           cf_rand_ipe = cf_target_rand$tau - cf_target_rand$mean,
+           cf_rand_a_ipe = cf_target_rand_a$tau - cf_target_rand_a$mean,
            sb_ipe = sb_target$tau - sb_target$mean,
            tb_ipe = tb_target$tau - tb_target$mean)
   
