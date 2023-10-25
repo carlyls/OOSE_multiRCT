@@ -2,7 +2,13 @@
 .Rhistory
 .RData
 .Ruserdata
+.DS_Store
 
-\Presentations
-\Notes
-\R\MA_Extra.R
+Presentations/**
+Notes/**
+Data/**
+Results/**
+R/MA_Extra.R
+.Rhistory
+.DS_Store/**
+.Rproj.user/**

@@ -9,7 +9,7 @@ source("R/Comparing_OOSEst.R")
 
 
 # set up parameters
-K <- 5
+K <- 1
 n_mean <- 500
 n_sd <- 0
 n_target <- 200
@@ -19,22 +19,17 @@ covars_rand <- "age"
 lin <- T
 distribution <- "same"
 target_dist <- "same"
+eps_study_m = 0.05
+eps_study_tau = 0.05
+eps_study_inter = 0.05
 
-eps_opt <- list(list(eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05),
-               list(eps_study_m=1, eps_study_tau=0.5, eps_study_inter=0.05))
-
-settings <- expand.grid(moderators=c(1:2),
-                        iteration = c(1:100))
+settings <- expand.grid(iteration = c(1:50))
 
 #run iterations
 res <- data.frame()
 for (i in 1:nrow(settings)) {
-
+  
   #Setup
-  moderators <- settings$moderators[i]
-  eps_study_m <- eps_opt[[moderators]]$eps_study_m
-  eps_study_tau <- eps_opt[[moderators]]$eps_study_tau
-  eps_study_inter <- eps_opt[[moderators]]$eps_study_inter
   iteration <- settings$iteration[i]
   seed <- i
   
@@ -68,37 +63,41 @@ for (i in 1:nrow(settings)) {
   #S-BART credible interval - training - pairwise difference = F
   sb_train <- sbart_ci(train_dat, sbart)
   #S-BART credible interval - target - pairwise difference = F
-  sb_target <- sbart_target(K, target_dat, sbart, covars)
+  #sb_target <- sbart_target(K, target_dat, sbart, covars)
   
   #S-BART credible interval - training - pairwise difference = T
   sb_train_p <- sbart_ci(train_dat, sbart, pairwise_diff=T)
   #S-BART credible interval - target - pairwise difference = T
-  sb_target_p <- sbart_target(K, target_dat, sbart, covars, pairwise_diff=T)
+  #sb_target_p <- sbart_target(K, target_dat, sbart, covars, pairwise_diff=T)
   
   rm(sbart)
   
   #calculate mean and CIs for individuals and assess accuracy
-  sb_res <- assess_interval(sb_train, sb_target)
-  sb_res_p <- assess_interval(sb_train_p, sb_target_p)
+  sb_res <- c(train_bias = mean(abs(sb_train$mean - sb_train$tau)),
+              train_mse = mean((sb_train$mean - sb_train$tau)^2),
+              train_coverage = sum(sb_train$tau >= sb_train$lower & sb_train$tau <= sb_train$upper)/nrow(sb_train),
+              train_length = mean(sb_train$upper - sb_train$lower))
+  sb_res_p <- c(train_bias = mean(abs(sb_train_p$mean - sb_train_p$tau)),
+              train_mse = mean((sb_train_p$mean - sb_train_p$tau)^2),
+              train_coverage = sum(sb_train_p$tau >= sb_train_p$lower & sb_train_p$tau <= sb_train_p$upper)/nrow(sb_train_p),
+              train_length = mean(sb_train_p$upper - sb_train_p$lower))
   
   #report results
   iter_res <- cbind(sb_res, sb_res_p) %>%
     data.frame() %>%
     rownames_to_column("Metric") %>%
-    mutate(moderators = moderators,
-           iteration = iteration)
+    mutate(iteration = iteration)
   
   res <- bind_rows(res, iter_res)
-
+  
 }
-saveRDS(res, "Data/BART_vartest_5Oct2023.RDS")
+saveRDS(res, "Data/BART_vartest_17Oct2023.RDS")
 
 #check results
-res <- readRDS("Data/BART_vartest_5Oct2023.RDS") %>%
-  filter(grepl("bias", Metric) == F)
+res <- readRDS("Data/BART_vartest_17Oct2023.RDS")
 #View(res)
 colnames(res) <- c("Metric", "S_NonPair", "S_Pair",
-                   "Moderators", "Iteration")
+                   "Iteration")
 
 #mse - should always be equal
 mse <- filter(res, grepl("mse", Metric)==T)
@@ -107,22 +106,29 @@ sum(round(mse$S_NonPair, 10) != round(mse$S_Pair, 10)) #0 is what we want to see
 #coverage - want close to 95%
 res %>%
   filter(grepl("coverage", Metric)==T) %>%
-  mutate(Dataset = factor(ifelse(grepl("train", Metric)==T, "Training", "Target"),
-                          levels = c("Training", "Target")),
-         Moderators = factor(ifelse(Moderators == 1, "Low Heterogeneity", "High Heterogeneity"),
-                             levels = c("Low Heterogeneity", "High Heterogeneity"))) %>%
   pivot_longer(cols=c(S_NonPair, S_Pair), names_to = "Method", values_to = "Coverage") %>%
-  ggplot(aes(x=Dataset, color=Method, y=Coverage)) +
+  ggplot(aes(x=Metric, color=Method, y=Coverage)) +
   geom_boxplot() +
-  scale_y_continuous(labels=scales::percent) +
-  geom_hline(aes(yintercept = 0.95), linetype = "dashed") +
-  facet_wrap(~Moderators)
-ggsave("Results/BART_vartest_20Oct2023.jpeg")
+  geom_hline(aes(yintercept = 0.95), linetype = "dashed")
+
+#bias
+res %>%
+  filter(grepl("bias", Metric)==T) %>%
+  pivot_longer(cols=c(S_NonPair, S_Pair), names_to = "Method", values_to = "Bias") %>%
+  ggplot(aes(x=Method, y=Bias)) +
+  geom_boxplot()
 
 #length
 res %>%
   filter(grepl("length", Metric)==T) %>%
   pivot_longer(cols=c(S_NonPair, S_Pair), names_to = "Method", values_to = "Length") %>%
-  ggplot(aes(x=Metric, y=Length, color=Method)) +
-  geom_boxplot() +
-  facet_wrap(~Moderators, scales = "free")
+  ggplot(aes(x=Method, y=Length)) +
+  geom_boxplot()
+
+#mse
+res %>%
+  filter(grepl("mse", Metric)==T) %>%
+  pivot_longer(cols=c(S_NonPair, S_Pair), names_to = "Method", values_to = "MSE") %>%
+  ggplot(aes(x=Method, y=MSE)) +
+  geom_boxplot()
+

@@ -17,7 +17,7 @@ library(tidyverse)
 
 ```{r, eval=F}
 #read in all files
-setwd("~/Desktop/Cluster/OOSEst/6Oct2023")
+setwd("~/Desktop/Cluster/OOSEst/11Oct2023")
 files <- list.files(pattern=".Rdata")
 
 all <- c()
@@ -33,11 +33,11 @@ length(unique(seeds)) == length(files) #making sure every iteration has a unique
 
 nrow(all) #to make sure every iteration ran
 setwd("~/Dropbox/Moderation/Out of Sample Prediction/Data")
-saveRDS(all, "all_results_6Oct2023.RDS")
+saveRDS(all, "all_results_11Oct2023.RDS")
 ```
 
 ```{r, message=F, warning=F}
-all <- readRDS("Data/all_results_6Oct2023.RDS")
+all <- readRDS("Data/all_results_11Oct2023.RDS")
 
 #long form for boxplot
 all_long <- all %>%
@@ -49,7 +49,11 @@ all_long <- all %>%
                values_to = "Value") %>%
   mutate(scenario = paste(covars_fix, covars_rand, lin, eps_study_m,
                           eps_study_tau, eps_study_inter, sep = "_"),
-         sds = paste(eps_study_m, eps_study_tau, eps_study_inter, sep = "_"))
+         sds = paste(eps_study_m, eps_study_tau, eps_study_inter, sep = "_"),
+         Dataset = factor(ifelse(grepl("target", Metric) == T,
+                                 "Target", "Training"),
+                          levels = c("Training", "Target")),
+         Linear = ifelse(lin == T, "Linear", "Non-Linear"))
 
 #average across iterations
 all_sum <- all %>%
@@ -61,7 +65,7 @@ all_sum <- all %>%
            distribution, target_dist) %>%
   summarise(across(MA:TBART, list(mean = mean, sd = sd)),
             n_iter = n())
-summary(all_avg$n_iter) #check iterations
+summary(all_sum$n_iter) #check iterations
 
 #average in long form
 all_avg_long <- all %>%
@@ -138,6 +142,42 @@ all_long %>%
         text = element_text(size=12)) +
   xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
   ylab("CI Coverage Percent in Training Sample") +
+  ggtitle("Same Target Distribution")
+```
+
+### Target Bias
+
+```{r, fig.height=7, fig.width=10}
+#age, same target distribution
+all_long %>%
+  filter(Metric == "target_bias", covars_fix == "age",
+         target_dist == "same", distribution == "same") %>%
+  ggplot(aes(x=sds, y=Value)) +
+  geom_boxplot(aes(color = Method)) +
+  facet_wrap(~lin) +
+  labs(color="Method") +
+  theme(axis.text.x = element_text(angle=90),
+        text = element_text(size=12)) +
+  xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
+  ylab("Mean Absolute Bias in Target Sample") +
+  ggtitle("Same Target Distribution")
+```
+
+### Training Bias
+
+```{r, fig.height=7, fig.width=10}
+#age, same target distribution
+all_long %>%
+  filter(Metric == "train_bias", covars_fix == "age",
+         target_dist == "same", distribution == "same") %>%
+  ggplot(aes(x=sds, y=Value)) +
+  geom_boxplot(aes(color = Method)) +
+  facet_wrap(~lin) +
+  labs(color="Method") +
+  theme(axis.text.x = element_text(angle=90),
+        text = element_text(size=12)) +
+  xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
+  ylab("Mean Absolute Bias in Training Sample") +
   ggtitle("Same Target Distribution")
 ```
 
@@ -253,81 +293,120 @@ all_long %>%
   ggtitle("Same Target Distribution")
 ```
 
-### CI Coverage by Variance
 
-NEED TO UPDATE (9/6)
+## Results by Method
 
-```{r, eval=F}
-#same target dist, same training dist
+For now, just using the setup where age is the fixed and random moderator, the training distributions are the same across trials, and the target distribution is the same as the training.
+
+### Meta-Analysis
+
+```{r, fig.height=7, fig.width=10}
+#age, same target distribution
+#mse
 all_long %>%
-  filter(Metric == "target_coverage",
-         target_dist == "same",
-         model != "GLHT",
-         distribution == "same") %>%
-  ggplot(aes(x=factor(eps_study_age), y=Mean, group=Method, color=spec)) +
-  geom_jitter(aes(shape=model), size=2.5, width=.2, height=0) +
-  facet_grid(eps_study_tau~eps_study_m) +
-  scale_y_continuous(labels = scales::percent) +
-  theme(axis.text.x = element_text(angle = 90)) +
-  xlab("Variability Trt*Age Coefficients") +
-  ylab("CI Coverage Percent in Target Sample") +
-  ggtitle("Same Target Distribution and Same Training Distribution")
-```
-
-
-## Target CI Length
-
-```{r}
-#plot target ci length
-#same target dist
-all_long %>%
-  filter(Metric == "target_length", covars_fix == "age",
-         target_dist == "same") %>%
+  filter(Method %in% c("MA","MA_Inc"), covars_fix == "age",
+         target_dist == "same", distribution == "same",
+         grepl("mse", Metric) == T,
+         sds != "1_1_0.5") %>%
   ggplot(aes(x=sds, y=Value)) +
   geom_boxplot(aes(color = Method)) +
-  ylim(0, 10) +
-  facet_grid(lin~distribution) +
-  labs(color="Method") + 
+  facet_grid(Dataset~Linear, scales = "free") +
   theme(axis.text.x = element_text(angle=90),
         text = element_text(size=12)) +
   xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
-  ylab("CI Length in Target Sample") +
-  ggtitle("Same Target Distribution")
+  ylab("MSE")
+ggsave("Results/19Oct2023/MA_MSE_19Oct2023.jpeg")
+
+#coverage
+all_long %>%
+  filter(Method %in% c("MA","MA_Inc"), covars_fix == "age",
+         target_dist == "same", distribution == "same",
+         grepl("coverage", Metric) == T,
+         sds != "1_1_0.5") %>%
+  ggplot(aes(x=sds, y=Value)) +
+  geom_boxplot(aes(color = Method)) +
+  geom_hline(aes(yintercept=.95), linetype = "dashed") +
+  facet_grid(Dataset~Linear, scales = "free") +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(angle=90),
+        text = element_text(size=12)) +
+  xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent") 
+ggsave("Results/19Oct2023/MA_Cov_19Oct2023.jpeg")
 ```
 
-## Target MSE
+### Causal Forest
 
-NEED TO UPDATE (9/6)
-
-```{r, eval=F}
-#plot target mse
-#same target dist
+```{r, fig.height=7, fig.width=10}
+#age, same target distribution
+#mse
 all_long %>%
-  filter(Metric == "target_mse",
-         target_dist == "same",
-         covars_fix == "age") %>%
-  ggplot(aes(x=sds, y=Value, group=Method, color=Method)) +
-  geom_boxplot() + ylim(0,5) +
-  facet_grid(lin~distribution) +
-  theme(axis.text.x = element_text(angle = 90)) +
-  xlab("Variability of Trt and Trt*Age Coefficients") +
-  ylab("MSE in Target Sample") +
-  ggtitle("Same Target Distribution")
+  filter(Method %in% c("HCF","ACF"), covars_fix == "age",
+         target_dist == "same", distribution == "same",
+         grepl("mse", Metric) == T,
+         sds != "1_1_0.5") %>%
+  ggplot(aes(x=sds, y=Value)) +
+  geom_boxplot(aes(color = Method)) +
+  facet_grid(Dataset~Linear, scales = "free") +
+  theme(axis.text.x = element_text(angle=90),
+        text = element_text(size=12)) +
+  xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
+  ylab("MSE")
+ggsave("Results/19Oct2023/CF_MSE_19Oct2023.jpeg")
 
-#different target dist
+#coverage
 all_long %>%
-  filter(Metric == "target_mse",
-         target_dist == "different",
-         covars_fix == "age") %>%
-  ggplot(aes(x=sds, y=Value, group=Method, color=Method)) +
-  geom_boxplot() + ylim(0,5) +
-  facet_grid(lin~distribution) +
-  theme(axis.text.x = element_text(angle = 90)) +
-  xlab("Variability of Trt and Trt*Age Coefficients") +
-  ylab("MSE in Target Sample") +
-  ggtitle("Different Target Distribution")
+  filter(Method %in% c("HCF","ACF"), covars_fix == "age",
+         target_dist == "same", distribution == "same",
+         grepl("coverage", Metric) == T,
+         sds != "1_1_0.5") %>%
+  ggplot(aes(x=sds, y=Value)) +
+  geom_boxplot(aes(color = Method)) +
+  geom_hline(aes(yintercept=.95), linetype = "dashed") +
+  facet_grid(Dataset~Linear, scales = "free") +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(angle=90),
+        text = element_text(size=12)) +
+  xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent") 
+ggsave("Results/19Oct2023/CF_Cov_19Oct2023.jpeg")
 ```
 
+### BART
 
+```{r, fig.height=7, fig.width=10}
+#age, same target distribution
+#mse
+all_long %>%
+  filter(Method %in% c("SBART","TBART"), covars_fix == "age",
+         target_dist == "same", distribution == "same",
+         grepl("mse", Metric) == T,
+         sds != "1_1_0.5") %>%
+  ggplot(aes(x=sds, y=Value)) +
+  geom_boxplot(aes(color = Method)) +
+  facet_grid(Dataset~Linear, scales = "free") +
+  theme(axis.text.x = element_text(angle=90),
+        text = element_text(size=12)) +
+  xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
+  ylab("MSE")
+ggsave("Results/19Oct2023/BART_MSE_19Oct2023.jpeg")
+
+#coverage
+all_long %>%
+  filter(Method %in% c("SBART","TBART"), covars_fix == "age",
+         target_dist == "same", distribution == "same",
+         grepl("coverage", Metric) == T,
+         sds != "1_1_0.5") %>%
+  ggplot(aes(x=sds, y=Value)) +
+  geom_boxplot(aes(color = Method)) +
+  geom_hline(aes(yintercept=.95), linetype = "dashed") +
+  facet_grid(Dataset~Linear, scales = "free") +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(angle=90),
+        text = element_text(size=12)) +
+  xlab("Variability of Main, Trt, and Trt*Age Coefficients") +
+  ylab("CI Coverage Percent") 
+ggsave("Results/19Oct2023/BART_Cov_19Oct2023.jpeg")
+```
 
 
