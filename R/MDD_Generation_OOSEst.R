@@ -61,7 +61,7 @@ sample_dist <- function(k, n, Sigma, eps_study_m, eps_study_tau,
 #main function
 gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", covars_rand="age",
                      lin=T, eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05,
-                     distribution="same") {
+                     distribution="same", target_dist="same") {
   
   #training data
   train_dat <- data.frame()
@@ -86,8 +86,12 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
   }
   
   #target data  - REPLACE WITH THE SAME DATASET EVERY TIME
-  target_dat <- train_dat[sample(nrow(train_dat), n_target),] %>%
-    dplyr::select(-S, -contains("eps_"))
+  if (target_dist == "same") {
+    target_dat <- train_dat[sample(nrow(train_dat), n_target),] %>%
+      dplyr::select(-S, -contains("eps_"))    
+  } else if (target_dist == "different") {
+    
+  }
   
   #define random slopes for moderators in target sample
   eps_inter_target <- matrix(nrow=n_target, ncol=length(covars_rand))

@@ -44,13 +44,13 @@ assess_interval <- function(train_dat, target_dat) {
 #overall function ####
 compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", covars_rand="age",
                         lin=T, eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05, 
-                        distribution="same") {
+                        distribution="same", target_dist="same") {
   
   
   ## Simulate training and target (OOS) data
   sim_dat <- gen_mdd(K, n_mean, n_sd, n_target, covars_fix, covars_rand, lin,
                      eps_study_m, eps_study_tau, eps_study_inter, 
-                     distribution)
+                     distribution, target_dist)
   train_dat <- sim_dat[["train_dat"]]
   target_dat <- sim_dat[["target_dat"]]
   
@@ -196,7 +196,7 @@ compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age"
                        covars_rand=paste(covars_rand, collapse = ", "), lin=lin,
                        eps_study_m=eps_study_m, eps_study_tau=eps_study_tau, 
                        eps_study_inter=paste(eps_study_inter, collapse = ", "),
-                       distribution=distribution)
+                       distribution=distribution, target_dist=target_dist)
   
   #data frame of results
   all_res <- cbind(manual_res, manual_res_wrong, cf_res, cf_a_res, sb_res, tb_res) %>%
