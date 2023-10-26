@@ -64,7 +64,7 @@ sample_dist <- function(k, n, Sigma, eps_study_m, eps_study_tau,
 #main function
 gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", covars_rand="age",
                      lin=T, eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05,
-                     distribution="same", target_dist="same") {
+                     distribution="same", target_dat=target_dat) {
   
   #training data
   train_dat <- data.frame()
@@ -88,27 +88,6 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
     
   }
   
-  #target data  - REPLACE WITH THE SAME DATASET EVERY TIME
-  if (target_dist == "same") {
-    target_dat <- train_dat[sample(nrow(train_dat), n_target),] %>%
-      dplyr::select(-S, -contains("eps_"))    
-  } else if (target_dist == "different") {
-    
-  }
-  
-  #define random slopes for moderators in target sample
-  eps_inter_target <- matrix(nrow=n_target, ncol=length(covars_rand))
-  colnames(eps_inter_target) <- paste0("eps_",covars_rand)
-  for (i in 1:length(covars_rand)) {
-    eps_inter_target[,i] <- rnorm(n=n_target, mean=0, sd=eps_study_inter[i])
-  }
-  
-  #add error terms to target sample
-  target_dat <- target_dat %>%
-    mutate(eps_m = rnorm(n=n_target, mean=0, sd=eps_study_m),
-           eps_tau = rnorm(n=n_target, mean=0, sd=eps_study_tau)) %>%
-    bind_cols(eps_inter_target)
-  
   #add m and tau
   if (length(covars_fix) == 1 & length(covars_rand) == 1) { #age only moderators
     
@@ -117,16 +96,16 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
         mutate(m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
                tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
       target_dat <- target_dat %>% 
-        mutate(m = (-17.40 + eps_m) - 0.13*age - 2.05*madrs - 0.11*sex,
-               tau = (2.505 + eps_tau) + (0.82 + eps_age)*age)
+        mutate(m = (-17.40) - 0.13*age - 2.05*madrs - 0.11*sex,
+               tau = (2.505) + (0.82)*age)
       
     } else { #nonlinear cate
       train_dat <- train_dat %>% 
         mutate(m = (-17.52 + eps_m) - 0.08*age,
                tau = (2.2 + eps_tau)*exp((.35 + eps_age)*age))
       target_dat <- target_dat %>% 
-        mutate(m = (-17.52 + eps_m) - 0.08*age,
-               tau = (2.2 + eps_tau)*exp((.35 + eps_age)*age))
+        mutate(m = (-17.52) - 0.08*age,
+               tau = (2.2)*exp((.35)*age))
       
     }
   } else if (length(covars_fix) == 2 & length(covars_rand) == 2) { #age and madrs moderators
@@ -135,8 +114,8 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
       mutate(m = (-17.29 + eps_m) - 0.20*age - 2.63*madrs - 0.14*sex,
              tau = (2.506 + eps_tau) + (0.91 + eps_age)*age + (0.84 + eps_madrs)*madrs)
     target_dat <- target_dat %>% 
-      mutate(m = (-17.29 + eps_m) - 0.20*age - 2.63*madrs - 0.14*sex,
-             tau = (2.506 + eps_tau) + (0.91 + eps_age)*age + (0.84 + eps_madrs)*madrs)
+      mutate(m = (-17.29) - 0.20*age - 2.63*madrs - 0.14*sex,
+             tau = (2.506) + (0.91)*age + (0.84)*madrs)
       
   } else if (length(covars_fix) == 2 & length(covars_rand) == 1) { #age^2 and sex (fixed) moderators
     
@@ -144,8 +123,8 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
       mutate(m = (-17.16 + eps_m) + 0.16*age2 - 2.07*madrs - 0.43*sex,
              tau = (2.14 + eps_tau) + (-0.16 + eps_age2)*age2 + (0.49)*sex)
     target_dat <- target_dat %>% 
-      mutate(m = (-17.16 + eps_m) + 0.16*age2 - 2.07*madrs - 0.43*sex,
-             tau = (2.14 + eps_tau) + (-0.16 + eps_age2)*age2 + (0.49)*sex)
+      mutate(m = (-17.16) + 0.16*age2 - 2.07*madrs - 0.43*sex,
+             tau = (2.14) + (-0.16)*age2 + (0.49)*sex)
     
   } 
   
