@@ -41,10 +41,10 @@ assess_interval <- function(train_dat, target_dat) {
   
 }
 
-target_metrics <- function(target_dat, method) {
+target_metrics <- function(target_update, method) {
   
   #add diagnostics for each row of target sample according to method
-  target_dat <- target_dat %>%
+  df <- target_update %>%
     mutate(method = method,
            coverage = as.numeric(tau >= lower & tau <= upper),
            bias = mean - tau,
@@ -52,20 +52,20 @@ target_metrics <- function(target_dat, method) {
            length = upper - lower,
            significant = as.numeric(sign(lower) == sign(upper)))
   
-  return(target_dat)
+  return(df)
 }
 
 
 #overall function ####
 compare_oos <- function(K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", covars_rand="age",
                         lin=T, eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05, 
-                        distribution="same", target_dist="same") {
+                        distribution="same", target_sample) {
   
   
   ## Simulate training and target (OOS) data
   sim_dat <- gen_mdd(K, n_mean, n_sd, n_target, covars_fix, covars_rand, lin,
                      eps_study_m, eps_study_tau, eps_study_inter, 
-                     distribution, target_dist)
+                     distribution, target_sample)
   train_dat <- sim_dat[["train_dat"]]
   target_dat <- sim_dat[["target_dat"]]
   
