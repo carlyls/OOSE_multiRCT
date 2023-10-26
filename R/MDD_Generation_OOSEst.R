@@ -8,29 +8,32 @@
 # library(grf)
 # library(nnet)
 
+#generate target sample
+
+
 #interior function
 sample_dist <- function(k, n, Sigma, eps_study_m, eps_study_tau, 
                         eps_study_inter, covars_rand, distribution) {
   
   #define mu based on distribution input
   if (distribution == "same") {
-    mu <- c(age=44.8971, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=31.4088)
+    mu <- c(age=0, sex=0.6784, smstat=0.3043, weight=0, madrs=0)
 
     } else if (distribution == "varying_madrs") {
-      mu <- c(age=44.8971, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=31.4088-k*1.5)
+      mu <- c(age=0, sex=0.6784, smstat=0.3043, weight=0, madrs=0-k*0.2)
     
     } else if (distribution == "halfdiff_madrsage") {
       if (k%%2 == 0 ) {
-        mu <- c(age=50, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=40)
+        mu <- c(age=1, sex=0.6784, smstat=0.3043, weight=0, madrs=1)
       } else {
-        mu <- c(age=44.8971, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=31.4088)
+        mu <- c(age=0, sex=0.6784, smstat=0.3043, weight=0, madrs=0)
       }
     
     } else if (distribution == "separate_age") {
       if (k == 1) {
-        mu <- c(age=60, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=31.4088)
+        mu <- c(age=1, sex=0.6784, smstat=0.3043, weight=0, madrs=0)
       } else {
-        mu <- c(age=30, sex=0.6784, smstat=0.3043, weight=79.0253, madrs=31.4088)
+        mu <- c(age=-1, sex=0.6784, smstat=0.3043, weight=0, madrs=0)
       }
   
     }
@@ -68,11 +71,11 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
   n_study <- floor(rnorm(K, mean=n_mean, sd=n_sd))
   
   #define covariance matrix
-  Sigma <- data.frame(age=c(165.6471, 0.2448, -0.5180, 1.6408, -0.9666),
-                      sex=c(0.2448, 0.2183, -0.0218, -1.9030, 0.1380),
-                      smstat=c(-0.5180, -0.0218, 0.2118, -0.1429, 0.1155),
-                      weight=c(1.6408, -1.9030, -0.1428, 452.6100, -7.6864),
-                      madrs=c(-0.9666, 0.1380, 0.1155, -7.6864, 17.5343),
+  Sigma <- data.frame(age=c(1, 0.0190, -0.0402, 0.0060, -0.0179),
+                      sex=c(0.0190, 0.2183, -0.0218, -0.0894, 0.0330),
+                      smstat=c(-0.0402, -0.0218, 0.2118, -0.0067, 0.0276),
+                      weight=c(0.0060, -0.0894, -0.0067, 1, -0.0863),
+                      madrs=c(-0.0179, 0.0330, 0.0276, -0.0863, 1),
                       row.names=c("age","sex","smstat","weight","madrs"))
   
   for (k in 1:K) {
@@ -105,18 +108,6 @@ gen_mdd <- function (K=10, n_mean=500, n_sd=0, n_target=100, covars_fix="age", c
     mutate(eps_m = rnorm(n=n_target, mean=0, sd=eps_study_m),
            eps_tau = rnorm(n=n_target, mean=0, sd=eps_study_tau)) %>%
     bind_cols(eps_inter_target)
-  
-  #standardize variables
-  train_dat <- train_dat %>% 
-    mutate(age = (age - mean(age))/sd(age),
-           madrs = (madrs - mean(madrs))/sd(madrs),
-           weight = (weight - mean(weight))/sd(weight),
-           age2 = (age2 - mean(age2))/sd(age2))
-  target_dat <- target_dat %>% 
-    mutate(age = (age - mean(age))/sd(age),
-           madrs = (madrs - mean(madrs))/sd(madrs),
-           weight = (weight - mean(weight))/sd(weight),
-           age2 = (age2 - mean(age2))/sd(age2))
   
   #add m and tau
   if (length(covars_fix) == 1 & length(covars_rand) == 1) { #age only moderators
