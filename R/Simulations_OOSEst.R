@@ -19,8 +19,6 @@ source("R/Comparing_OOSEst.R")
 K <- 10
 n_mean <- 500
 n_sd <- 0
-n_target <- 100
-honesty <- T
 target_sample <- readRDS("Data/target_sample.RDS")
 
 mods <- list(list(covars_fix="age", covars_rand="age", lin=T,
@@ -35,10 +33,6 @@ mods <- list(list(covars_fix="age", covars_rand="age", lin=T,
                     lin=T, eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=c(0.05,0.05)),
                list(covars_fix=c("age", "madrs"), covars_rand=c("age", "madrs"), 
                     lin=T, eps_study_m=1, eps_study_tau=0.5, eps_study_inter=c(0.5,0.05)),
-               list(covars_fix=c("age2", "sex"), covars_rand=c("age2"), 
-                    lin=T, eps_study_m=1, eps_study_tau=0.5, eps_study_inter=0.05),
-               list(covars_fix=c("age2", "sex"), covars_rand=c("age2"), 
-                    lin=T, eps_study_m=1, eps_study_tau=0.5, eps_study_inter=0.5),
                list(covars_fix="age", covars_rand="age", lin=F,
                     eps_study_m=0.05, eps_study_tau=0.05, eps_study_inter=0.05),
                list(covars_fix="age", covars_rand="age", lin=F,
@@ -69,10 +63,10 @@ seed <- i
 
 #run main function
 set.seed(seed)
-results <- compare_oos(K=K, n_mean=n_mean, n_sd=n_sd, n_target=n_target, covars_fix=covars_fix,
+results <- compare_oos(K=K, n_mean=n_mean, n_sd=n_sd, covars_fix=covars_fix,
                        covars_rand=covars_rand, lin=lin, eps_study_m=eps_study_m, eps_study_tau=eps_study_tau, 
                        eps_study_inter=eps_study_inter, distribution=distribution, target_sample=target_sample)
-save(results, file=paste(paste("results",seed,iteration,K,n_mean,n_sd,n_target,"modset",moderators,
+save(results, file=paste(paste("results",seed,iteration,K,n_mean,n_sd,"modset",moderators,
                                lin,eps_study_m,eps_study_tau,mean(eps_study_inter),distribution,sep = "_"),
                          ".Rdata",sep=""))
 
