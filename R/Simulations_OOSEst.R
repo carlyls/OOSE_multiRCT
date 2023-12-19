@@ -16,6 +16,7 @@ source("R/BART_OOSEst.R")
 source("R/Comparing_OOSEst.R")
 
 # set up parameters
+K <- 10
 n_mean <- 500
 n_sd <- 0
 target_sample <- readRDS("Data/target_sample.RDS")
@@ -41,15 +42,13 @@ mods <- list(list(covars_fix="age", covars_rand="age", lin=T,
                list(covars_fix="age", covars_rand="age", lin=F,
                     eps_study_m=1, eps_study_tau=1, eps_study_inter=0.5))
 
-settings <- expand.grid(K = c(10, 3),
-                        moderators = c(1:length(mods)),
+settings <- expand.grid(moderators = c(1:length(mods)),
                         distribution = c("same", "varying_madrs", "separate_age"),
-                        iteration = c(1:500))
+                        iteration = c(1:100))
 
 #set row of settings and define parameters
 i=as.numeric(Sys.getenv('SLURM_ARRAY_TASK_ID'))
 
-K <- settings$moderators[i]
 moderators <- settings$moderators[i]
 covars_fix <- mods[[moderators]]$covars_fix
 covars_rand <- mods[[moderators]]$covars_rand
