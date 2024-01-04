@@ -150,7 +150,7 @@ all_avg_long <- all_res %>%
 
 ### Coverage
 
-```{r, eval=F, fig.height=7, fig.width=10}
+```{r, fig.height=7, fig.width=10}
 #boxplot across 100 people in target sample
 target_ind %>%
   filter(covars_fix == "age",
@@ -207,6 +207,54 @@ target_sum %>%
 ```
 
 ```{r}
+#coverage by age - all
+target_ind %>%
+  filter(covars_fix == "age",
+         distribution == "same",
+         method %in% c("HCF", "MA", "SBART")) %>%
+  ggplot(aes(x=age, y=coverage, color=method)) +
+  geom_smooth(se=F) +
+  geom_hline(aes(yintercept = 0.95), linetype = "dashed") +
+  scale_y_continuous(labels = scales::percent) +
+  facet_grid(Linear ~ sds_lab, scales = "free")
+
+#points
+target_ind %>%
+  filter(covars_fix == "age",
+         distribution == "same",
+         method %in% c("HCF", "MA", "SBART")) %>%
+  ggplot(aes(x=age, y=coverage, color=method)) +
+  geom_point() +
+  geom_hline(aes(yintercept = 0.95), linetype = "dashed") +
+  scale_y_continuous(labels = scales::percent) +
+  facet_grid(Linear ~ sds_lab, scales = "free")
+```
+
+```{r}
+#coverage by madrs - all
+target_ind %>%
+  filter(covars_fix == "age",
+         distribution == "same",
+         method %in% c("HCF", "MA", "SBART")) %>%
+  ggplot(aes(x=madrs, y=coverage, color=method)) +
+  geom_smooth(se=F) +
+  geom_hline(aes(yintercept = 0.95), linetype = "dashed") +
+  scale_y_continuous(labels = scales::percent) +
+  facet_grid(Linear ~ sds_lab, scales = "free")
+
+#points
+target_ind %>%
+  filter(covars_fix == "age",
+         distribution == "same",
+         method %in% c("HCF", "MA", "SBART")) %>%
+  ggplot(aes(x=madrs, y=coverage, color=method)) +
+  geom_point() +
+  geom_hline(aes(yintercept = 0.95), linetype = "dashed") +
+  scale_y_continuous(labels = scales::percent) +
+  facet_grid(Linear ~ sds_lab, scales = "free")
+```
+
+```{r, eval=F}
 #coverage by age - HCF
 target_ind %>%
   filter(covars_fix == "age",
@@ -219,7 +267,7 @@ target_ind %>%
   ggtitle("Results Using HCF")
 ```
 
-```{r}
+```{r, eval=F}
 #coverage by madrs - HCF
 target_ind %>%
   filter(covars_fix == "age",
@@ -232,7 +280,7 @@ target_ind %>%
   ggtitle("Results Using HCF")
 ```
 
-```{r}
+```{r, eval=F}
 #coverage by age - SBART
 target_ind %>%
   filter(covars_fix == "age",
@@ -281,16 +329,25 @@ target_sum %>%
 ```
 
 ```{r}
-#length by age - HCF
+#length by age - all
 target_ind %>%
   filter(covars_fix == "age",
          distribution == "same",
-         method == "HCF") %>%
-  ggplot(aes(x=age, y=length)) +
+         method %in% c("HCF", "MA", "SBART")) %>%
+  ggplot(aes(x=age, y=length, color=method)) +
+  geom_smooth(se=F) +
+  facet_grid(Linear ~ sds_lab, scales = "free")
+
+#points
+target_ind %>%
+  filter(covars_fix == "age",
+         distribution == "same",
+         method %in% c("HCF", "MA", "SBART")) %>%
+  ggplot(aes(x=age, y=length, color=method)) +
   geom_point() +
-  facet_grid(Linear ~ sds_lab, scales = "free") +
-  ggtitle("Results Using HCF")
+  facet_grid(Linear ~ sds_lab, scales = "free")
 ```
+
 
 ### Bias
 
@@ -315,7 +372,7 @@ target_ind %>%
 ggsave("Results/26Oct2023/abs_bias.jpeg")
 ```
 
-```{r}
+```{r, eval=F}
 #for job talk
 target_ind %>%
   filter(covars_fix == "age",
@@ -335,6 +392,25 @@ target_ind %>%
   xlab("")
 ```
 
+```{r}
+#bias by age - all
+target_ind %>%
+  filter(covars_fix == "age",
+         distribution == "same",
+         method %in% c("HCF", "MA", "SBART")) %>%
+  ggplot(aes(x=age, y=bias, color=method)) +
+  geom_smooth(se=F) +
+  facet_grid(Linear ~ sds_lab, scales = "free")
+
+#points
+target_ind %>%
+  filter(covars_fix == "age",
+         distribution == "same",
+         method %in% c("HCF", "MA", "SBART")) %>%
+  ggplot(aes(x=age, y=bias, color=method)) +
+  geom_point() +
+  facet_grid(Linear ~ sds_lab, scales = "free")
+```
 
 
 ## TARGET EVAL: Other Settings
