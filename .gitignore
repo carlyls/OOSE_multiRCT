@@ -12,3 +12,7 @@ R/MA_Extra.R
 .Rhistory
 .DS_Store/**
 .Rproj.user/**
+Combine_Sims_OOSEst.Rmd
+Combine_Sims_OOSEst.html
+Combine_Sims_OOSEst_Opt2.Rmd
+Combine_Sims_OOSEst_Opt2.html

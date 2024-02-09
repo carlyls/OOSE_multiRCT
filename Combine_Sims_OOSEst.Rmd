@@ -74,9 +74,9 @@ target_ind <- target_res %>%
                           eps_study_tau, eps_study_inter, sep = "_"),
          sds = paste(eps_study_m, eps_study_tau, eps_study_inter, sep = "_"),
          Linear = ifelse(lin == T, "Linear", "Non-Linear"),
-         sds_lab = factor(case_when(sds == "0.05_0.05_0.05" ~ "Low Heterogeneity",
+         sds_lab = factor(case_when(sds == "0.05_0.05_0.05" | sds == "0.05_0.05_0.05, 0.05" ~ "Low Heterogeneity",
                              sds == "1_0.05_0.05" ~ "Heterogeneous Intercept",
-                             sds == "1_0.5_0.05" ~ "Heterogeneous Main",
+                             sds == "1_0.5_0.05" | sds == "1_0.5_0.5, 0.05" ~ "Heterogeneous Main",
                              sds == "1_1_0.5" ~ "High Heterogeneity"), 
                           levels = c("Low Heterogeneity", "Heterogeneous Intercept",
                                      "Heterogeneous Main", "High Heterogeneity")))
@@ -91,9 +91,9 @@ target_sum <- target_ind %>%
                           eps_study_tau, eps_study_inter, sep = "_"),
          sds = paste(eps_study_m, eps_study_tau, eps_study_inter, sep = "_"),
          Linear = ifelse(lin == T, "Linear", "Non-Linear"),
-         sds_lab = factor(case_when(sds == "0.05_0.05_0.05" ~ "Low Heterogeneity",
+         sds_lab = factor(case_when(sds == "0.05_0.05_0.05" | sds == "0.05_0.05_0.05, 0.05" ~ "Low Heterogeneity",
                              sds == "1_0.05_0.05" ~ "Heterogeneous Intercept",
-                             sds == "1_0.5_0.05" ~ "Heterogeneous Main",
+                             sds == "1_0.5_0.05" | sds == "1_0.5_0.5, 0.05" ~ "Heterogeneous Main",
                              sds == "1_1_0.5" ~ "High Heterogeneity"), 
                           levels = c("Low Heterogeneity", "Heterogeneous Intercept",
                                      "Heterogeneous Main", "High Heterogeneity")))
@@ -155,7 +155,7 @@ all_avg_long <- all_res %>%
 target_ind %>%
   filter(covars_fix == "age",
          distribution == "same",
-         method %in% c("ACF", "HCF", "MA", "MA_Inc", "SBART")) %>%
+         method %in% c("ACF", "HCF", "MA", "SBART")) %>%
   ggplot(aes(x=method)) +
   geom_boxplot(aes(y=coverage)) +
   geom_hline(aes(yintercept = 0.95), linetype = "dashed") +
@@ -216,7 +216,10 @@ target_ind %>%
   geom_smooth(se=F) +
   geom_hline(aes(yintercept = 0.95), linetype = "dashed") +
   scale_y_continuous(labels = scales::percent) +
-  facet_grid(Linear ~ sds_lab, scales = "free")
+  facet_grid(Linear ~ sds_lab, scales = "free") +
+  theme(text = element_text(size=15)) +
+  xlab("Standardized Age") + ylab("Coverage in Target Sample") +
+  labs(fill = "Method")
 
 #points
 target_ind %>%
@@ -300,12 +303,12 @@ target_ind %>%
 target_ind %>%
   filter(covars_fix == "age",
          distribution == "same",
-         method %in% c("ACF", "HCF", "MA", "MA_Inc", "SBART")) %>%
+         method %in% c("ACF", "HCF", "MA", "SBART")) %>%
   ggplot(aes(x=method)) +
   geom_boxplot(aes(y=length)) +
   facet_grid(Linear ~ sds_lab, scales = "free") +
   theme(axis.text.x = element_text(angle=90),
-        text = element_text(size=12)) +
+        text = element_text(size=15)) +
   ylab("Interval Length in Target Sample") +
   xlab("")
 #ggsave("Results/26Oct2023/length.jpeg")
@@ -336,7 +339,10 @@ target_ind %>%
          method %in% c("HCF", "MA", "SBART")) %>%
   ggplot(aes(x=age, y=length, color=method)) +
   geom_smooth(se=F) +
-  facet_grid(Linear ~ sds_lab, scales = "free")
+  facet_grid(Linear ~ sds_lab, scales = "free") + theme(text = element_text(size=15)) +
+  xlab("Standardized Age") +
+  ylab("Interval Length in Target Sample") +
+  labs(fill = "Method")
 
 #points
 target_ind %>%
@@ -355,18 +361,12 @@ target_ind %>%
 target_ind %>%
   filter(covars_fix == "age",
          distribution == "same",
-         method %in% c("ACF", "HCF", "MA", "MA_Inc", "SBART")) %>%
-  mutate(sds_lab = factor(case_when(sds == "0.05_0.05_0.05" ~ "Low Heterogeneity",
-                             sds == "1_0.05_0.05" ~ "Heterogeneous Intercept",
-                             sds == "1_0.5_0.05" ~ "Heterogeneous Main",
-                             sds == "1_1_0.5" ~ "High Heterogeneity"), 
-                          levels = c("Low Heterogeneity", "Heterogeneous Intercept",
-                                     "Heterogeneous Main", "High Heterogeneity"))) %>%
+         method %in% c("ACF", "HCF", "MA", "SBART")) %>%
   ggplot(aes(x=method)) +
   geom_boxplot(aes(y=abs_bias)) +
   facet_grid(Linear ~ sds_lab, scales = "free") +
   theme(axis.text.x = element_text(angle=90),
-        text = element_text(size=12)) +
+        text = element_text(size=15)) +
   ylab("Absolute Bias in Target Sample") +
   xlab("")
 ggsave("Results/26Oct2023/abs_bias.jpeg")
@@ -398,9 +398,12 @@ target_ind %>%
   filter(covars_fix == "age",
          distribution == "same",
          method %in% c("HCF", "MA", "SBART")) %>%
-  ggplot(aes(x=age, y=bias, color=method)) +
+  ggplot(aes(x=age, y=abs_bias, color=method)) +
   geom_smooth(se=F) +
-  facet_grid(Linear ~ sds_lab, scales = "free")
+  facet_grid(Linear ~ sds_lab, scales = "free") + theme(text = element_text(size=15)) +
+  xlab("Standardized Age") +
+  ylab("Absolute Bias in Target Sample") +
+  labs(fill = "Method")
 
 #points
 target_ind %>%
@@ -409,7 +412,10 @@ target_ind %>%
          method %in% c("HCF", "MA", "SBART")) %>%
   ggplot(aes(x=age, y=bias, color=method)) +
   geom_point() +
-  facet_grid(Linear ~ sds_lab, scales = "free")
+  facet_grid(Linear ~ sds_lab, scales = "free") + theme(text = element_text(size=15)) +
+  xlab("Standardized Age") +
+  ylab("Absolute Bias in Target Sample") +
+  labs(fill = "Method")
 ```
 
 
@@ -422,14 +428,16 @@ target_ind %>%
 target_ind %>%
   filter(covars_fix == "age",
          distribution == "varying_madrs",
-         method %in% c("ACF", "HCF", "MA", "MA_Inc", "SBART")) %>%
-  ggplot(aes(x=method, group=method)) +
-  geom_boxplot(aes(y=coverage, color=method)) +
+         method %in% c("ACF", "HCF", "MA", "SBART")) %>%
+  ggplot(aes(x=method)) +
+  geom_boxplot(aes(y=coverage)) +
   geom_hline(aes(yintercept = 0.95), linetype = "dashed") +
-  facet_grid(Linear ~ sds, scales = "free") +
+  facet_grid(Linear ~ sds_lab, scales = "free") +
+  scale_y_continuous(labels = scales::percent) +
   theme(axis.text.x = element_text(angle=90),
-        text = element_text(size=12)) +
-  ylab("Coverage in Target Sample")
+        text = element_text(size=15)) +
+  ylab("Coverage in Target Sample") +
+  xlab("")
 ```
 
 ```{r, fig.height=7, fig.width=10}
@@ -486,14 +494,16 @@ target_ind %>%
 target_ind %>%
   filter(covars_fix == "age",
          distribution == "separate_age",
-         method %in% c("ACF", "HCF", "MA", "MA_Inc", "SBART")) %>%
-  ggplot(aes(x=method, group=method)) +
-  geom_boxplot(aes(y=coverage, color=method)) +
+         method %in% c("ACF", "HCF", "MA", "SBART")) %>%
+  ggplot(aes(x=method)) +
+  geom_boxplot(aes(y=coverage)) +
   geom_hline(aes(yintercept = 0.95), linetype = "dashed") +
-  facet_grid(Linear ~ sds, scales = "free") +
+  facet_grid(Linear ~ sds_lab, scales = "free") +
+  scale_y_continuous(labels = scales::percent) +
   theme(axis.text.x = element_text(angle=90),
-        text = element_text(size=12)) +
-  ylab("Coverage in Target Sample")
+        text = element_text(size=15)) +
+  ylab("Coverage in Target Sample") +
+  xlab("")
 ```
 
 
@@ -504,14 +514,16 @@ target_ind %>%
 target_ind %>%
   filter(covars_fix == "age, madrs",
          distribution == "same",
-         method %in% c("ACF", "HCF", "MA", "MA_Inc", "SBART")) %>%
-  ggplot(aes(x=method, group=method)) +
-  geom_boxplot(aes(y=coverage, color=method)) +
+         method %in% c("ACF", "HCF", "MA", "SBART")) %>%
+  ggplot(aes(x=method)) +
+  geom_boxplot(aes(y=coverage)) +
   geom_hline(aes(yintercept = 0.95), linetype = "dashed") +
-  facet_grid(Linear ~ sds, scales = "free") +
+  facet_grid(Linear ~ sds_lab, scales = "free") +
+  scale_y_continuous(labels = scales::percent) +
   theme(axis.text.x = element_text(angle=90),
-        text = element_text(size=12)) +
-  ylab("Coverage in Target Sample")
+        text = element_text(size=15)) +
+  ylab("Coverage in Target Sample") +
+  xlab("")
 ```
 
 ```{r, fig.height=7, fig.width=10}
@@ -567,14 +579,16 @@ target_ind %>%
 target_ind %>%
   filter(covars_fix == "age, madrs",
          distribution == "varying_madrs",
-         method %in% c("ACF", "HCF", "MA", "MA_Inc", "SBART")) %>%
-  ggplot(aes(x=method, group=method)) +
-  geom_boxplot(aes(y=coverage, color=method)) +
+         method %in% c("ACF", "HCF", "MA", "SBART")) %>%
+  ggplot(aes(x=method)) +
+  geom_boxplot(aes(y=coverage)) +
   geom_hline(aes(yintercept = 0.95), linetype = "dashed") +
-  facet_grid(Linear ~ sds, scales = "free") +
+  facet_grid(Linear ~ sds_lab, scales = "free") +
+  scale_y_continuous(labels = scales::percent) +
   theme(axis.text.x = element_text(angle=90),
-        text = element_text(size=12)) +
-  ylab("Coverage in Target Sample")
+        text = element_text(size=15)) +
+  ylab("Coverage in Target Sample") +
+  xlab("")
 ```
 
 
@@ -585,14 +599,16 @@ target_ind %>%
 target_ind %>%
   filter(covars_fix == "age, madrs",
          distribution == "separate_age",
-         method %in% c("ACF", "HCF", "MA", "MA_Inc", "SBART")) %>%
-  ggplot(aes(x=method, group=method)) +
-  geom_boxplot(aes(y=coverage, color=method)) +
+         method %in% c("ACF", "HCF", "MA", "SBART")) %>%
+  ggplot(aes(x=method)) +
+  geom_boxplot(aes(y=coverage)) +
   geom_hline(aes(yintercept = 0.95), linetype = "dashed") +
-  facet_grid(Linear ~ sds, scales = "free") +
+  facet_grid(Linear ~ sds_lab, scales = "free") +
+  scale_y_continuous(labels = scales::percent) +
   theme(axis.text.x = element_text(angle=90),
-        text = element_text(size=12)) +
-  ylab("Coverage in Target Sample")
+        text = element_text(size=15)) +
+  ylab("Coverage in Target Sample") +
+  xlab("")
 ```
 
 
