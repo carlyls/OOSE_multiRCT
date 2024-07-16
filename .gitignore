@@ -8,11 +8,13 @@ Presentations/**
 Notes/**
 Data/**
 Results/**
+Paper/**
 R/MA_Extra.R
 R/Checking_MA.R
 R/BART_SingleStudy.R
 R/BART_VarianceTest.R
 R/cluster_ex.sh
+R/Plotting_Intervals.R
 .Rhistory
 .DS_Store/**
 .Rproj.user/**
