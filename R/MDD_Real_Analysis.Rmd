@@ -1,0 +1,202 @@
+---
+title: 'Target Sample Prediction: MDD'
+output: html_document
+date: '2024-09-03'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Data Preparation
+
+```{r message=F, warning=F}
+##########################################
+###    Prediction Intervals in MDD     ###
+###            09/03/2024              ###
+##########################################
+
+library(tidyverse)
+library(lme4)
+library(rsample)
+library(multcomp)
+library(MASS)
+library(grf)
+library(fastDummies)
+library(table1)
+
+source("CF_OOSEst.R")
+```
+
+```{r}
+## Read in and Explore MDD Data
+mdd_base <- read.csv("Data/MDD_baseline.csv")
+mdd_locf <- read.csv("Data/MDD_LOCF.csv")
+
+mdd <- left_join(mdd_base, mdd_locf) %>%
+  mutate(Y = MADRS_LOCF - MADRS_BASE,
+         DEP_BIN = ifelse(MADRS_BASE <= 34, 0, 1),
+         W = ifelse(TRT=="Duloxetine",0,1)) %>%
+  filter(is.na(Y)==F)
+```
+
+```{r, message=F, eval=T}
+## Descriptive table
+table1(~ AGE_IN_YR + SEX_BIN + WEIGHT + DEP_BIN +
+         DM + hypothyroidism + anxiety +
+         Antidepressant + Antipsychotic + Thyroid + Y | S, 
+       data = tab1, overall=F,
+       render.categorical=c(.="PCT%"),
+       render.continuous=c(.="Mean (SD)"))
+```
+
+### Imputation
+
+```{r}
+## Imputation 
+weight_reg <- lm(WEIGHT ~ S + AGE_IN_YR + SEX + 
+                   DEP_BIN + DM  +
+                   hypothyroidism +anxiety + Antidepressant +
+                   Antipsychotic + Thyroid + W + Y, data=mdd)
+
+weight_mis <- which(is.na(mdd$WEIGHT)==T)
+
+mdd$WEIGHT[weight_mis] <- predict(weight_reg, newdata = mdd[weight_mis,])
+```
+
+## Fit Models
+
+```{r}
+K <- 4  #number of trials
+covars <- c("AGE_IN_YR","SEX_BIN","WEIGHT",
+            "DEP_BIN","DM",
+            "hypothyroidism","anxiety","Antidepressant",
+            "Antipsychotic","Thyroid") 
+set.seed(3)
+
+
+## Causal Forest
+feat <- dplyr::select(mdd, c(S, all_of(covars))) %>%
+  fastDummies::dummy_cols(select_columns="S", remove_selected_columns=T)
+
+tau_forest <- grf::causal_forest(X=feat, Y=mdd$Y, W=mdd$W, 
+                                 num.threads=3, honesty=T, num.trees=1000)
+tau_hat <- predict(tau_forest, estimate.variance=T)
+  
+#causal forest CI - training
+cf_train <- cf_pi_train(mdd, tau_hat)
+```
+
+### Summarize
+
+```{r}
+#plot CATE estimate by age
+cf_train %>%
+  ggplot(aes(x = AGE_IN_YR, y=mean)) +
+  geom_point() +
+  facet_wrap(~ S) +
+  xlab("Age") +
+  ylab("Treatment Effect Estimate")
+
+#summarise CI length
+cf_train %>%
+  ggplot(aes(x = S, y = upper - lower)) +
+  geom_boxplot()
+```
+
+```{r}
+#descriptive statistics
+cf_train %>%
+  mutate(length = upper - lower) %>%
+  summarise(mean_cate = mean(mean),
+            sd_cate = sd(mean),
+            mean_length = mean(length),
+            perc_sig = sum(lower > 0)/n())
+```
+
+
+## Predict in EHR Data
+
+```{r}
+ehr <- read.csv("Data/ehr_dat.csv")
+
+ehr_dep <- ehr %>%
+  filter(Baseline_PHQ9_VALUE >= 10,
+         AGE_IN_YR >= 18)
+
+#table 1
+table1(~AGE_IN_YR + SEX_BIN + WEIGHT + DEP_BIN + DM + 
+         hypothyroidism + anxiety + Antidepressant + 
+         Antipsychotic + Thyroid,
+       data = ehr_dep,
+       render.categorical=c(.="PCT%"),
+       render.continuous=c(.="Mean (SD)"))
+```
+
+### Imputation
+
+```{r}
+#impute WEIGHT
+weight_ehr_reg <- lm(WEIGHT ~ AGE_IN_YR + SEX_BIN + 
+                   DEP_BIN + DM  +
+                   hypothyroidism +anxiety + Antidepressant +
+                   Antipsychotic + Thyroid, data=ehr_dep)
+
+weight_ehr_mis <- which(is.na(ehr_dep$WEIGHT)==T)
+
+ehr_dep$WEIGHT[weight_ehr_mis] <- predict(weight_ehr_reg, newdata = ehr_dep[weight_ehr_mis,])
+```
+
+### Fit Models
+
+```{r}
+#Apply models to target data
+cf_target <- cf_pi_target(K, ehr_dep, tau_forest, covars)
+```
+
+### Summarize 
+
+```{r}
+#Plot intervals
+cf_target %>%
+  arrange(mean) %>%
+  rownames_to_column(var="id") %>%
+  mutate(id = as.numeric(id)) %>%
+  ggplot(aes(x=id, y=mean)) +
+  geom_errorbar(aes(ymin=lower, ymax=upper), color="lightgrey") +
+  geom_hline(aes(yintercept = 0), linetype = "dashed", color = "blue") +
+  geom_point() + xlab("Covariate Profile in Target Setting") + 
+  ylab("CATE (95% Prediction Interval)") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x=element_blank(),
+        text = element_text(size=12))
+```
+
+```{r}
+#descriptive statistics
+cf_target %>%
+  mutate(length = upper - lower) %>%
+  summarise(mean_cate = mean(mean),
+            sd_cate = sd(mean),
+            mean_length = mean(length),
+            perc_sig = sum(lower > 0)/n())
+```
+
+```{r}
+#group by significance
+sig_grp <- cf_target %>%
+  mutate(sig = ifelse(sign(lower) == sign(upper) & sign(upper) == 1, 
+                      "Significant - Duloxetine",
+                      ifelse(sign(lower) == sign(upper) & sign(upper) == -1, 
+                             "Significant - Vortioxetine", "Not Significant")))
+
+table1(~ AGE_IN_YR + SEX_BIN + WEIGHT + DEP_BIN +
+         DM + hypothyroidism + anxiety +
+         Antidepressant + Antipsychotic + Thyroid | sig, 
+       data = sig_grp, overall=F,
+       render.categorical=c(.="PCT%"),
+       render.continuous=c(.="Mean (SD)"))
+```
+
