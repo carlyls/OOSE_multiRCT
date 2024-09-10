@@ -15,3 +15,5 @@ This repo contains code for methods that estimate prediction intervals for the c
 -   Simulations_OOSEst.R: Applies the functions from all files using different data generation parameters and scenarios, repeats multiple iterations, and saves the results.
 
 -   OOSEst_cluster.sh: Applies the simulations in a computing cluster.
+
+-   MDD_Real_Analysis.Rmd: Contains example code to apply the causal forest with pooling with trial indicator to real randomized controlled trials of major depression medications and subsequently construct prediction intervals in patient profiles from EHR data.
